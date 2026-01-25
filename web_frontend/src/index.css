@@ -1,0 +1,30 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-['Outfit'] bg-background text-slate-800;
+  }
+}
+
+.active hr{
+    @apply block bg-primary h-1 rounded-full
+}
+
+::-webkit-scrollbar{
+    @apply hidden
+}
+
+.medical-card {
+    @apply border border-slate-100 rounded-2xl bg-white shadow-sm hover:shadow-md transition-shadow duration-300;
+}
+
+.btn-primary {
+    @apply bg-primary text-white px-6 py-2.5 rounded-full font-medium hover:bg-opacity-90 active:scale-95 transition-all;
+}
+
+.btn-secondary {
+    @apply bg-secondary text-white px-6 py-2.5 rounded-full font-medium hover:bg-opacity-90 active:scale-95 transition-all;
+}
