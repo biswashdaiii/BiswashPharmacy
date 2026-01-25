@@ -3,8 +3,8 @@ import mongoose from "mongoose";
 import cors from "cors";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
-import http from "http";
-import { Server } from "socket.io";
+import https from "https";
+import fs from "fs";
 import 'dotenv/config';
 import helmet from 'helmet';
 import session from 'express-session';
@@ -16,41 +16,30 @@ import { connectDB } from "./config/mongodb.js";
 import adminRouter from "./routes/adminRoute.js";
 import userRouter from "./routes/userRoutes.js";
 import productRouter from "./routes/productRoute.js";
-import chatRoutes from "./routes/chatRoute.js";
 import paymentRouter from "./routes/paymentRoute.js";
 import cartRouter from "./routes/cartRoute.js";
 import orderRouter from "./routes/orderRoute.js";
 import { apiLimiter } from "./middleware/rateLimiter.js";
 import { verifyEsewaPayment } from "./controllers/paymentController.js";
 
-import { getRoomId } from "./config/chatHelper.js";
-import {
-  getUserLastSeen,
-  updateMessageStatus,
-  markMessageAsRead,
-  markMessageAsDelivered,
-  undeliveredMessages as getUndeliveredMessages,
-  updateUserLastSeen,
-  createMessage
-} from "./Service/chatService.js";
-
-import User from "./models/userModel.js";
-import Message from "./models/message.js";
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 connectDB();
 const app = express();
-const httpServer = http.createServer(app);
+
+// ============ SSL/HTTPS CONFIGURATION ============
+const options = {
+  key: fs.readFileSync(path.join(__dirname, '../ssl/private-key.pem')),
+  cert: fs.readFileSync(path.join(__dirname, '../ssl/certificate.pem'))
+};
+
+const httpServer = https.createServer(options, app);
 
 // Trust proxy - required for rate limiting to work correctly
 app.set('trust proxy', 1);
 
-const io = new Server(httpServer, {
-  cors: { origin: "*" }
-});
-
+// ============ SECURITY MIDDLEWARE ============
 // Security middleware with enhanced Content-Security-Policy
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -61,19 +50,18 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      connectSrc: ["'self'", "http://localhost:*", "ws://localhost:*", "http://192.168.226.1:*", "ws://192.168.226.1:*", "http://192.168.1.98:*", "ws://192.168.1.98:*"],
+      connectSrc: ["'self'", "https://localhost:*", "https://192.168.226.1:*", "https://192.168.1.98:*"],
       frameSrc: ["https://www.google.com"],
     },
   },
 }));
 
-// Body parsing and CORS
+// ============ BODY PARSING & COOKIES ============
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Unified Security Middleware for Express 5 (NoSQL + XSS Protection)
-// Handles read-only req.query property
+// ============ INPUT SANITIZATION (XSS & NoSQL PROTECTION) ============
 const sanitizeValue = (value) => {
   if (typeof value === 'string') {
     // Basic XSS protection: remove <script> and other common tags
@@ -100,13 +88,10 @@ app.use((req, res, next) => {
   if (req.body) sanitizeValue(req.body);
   if (req.params) sanitizeValue(req.params);
   if (req.query) {
-    // Sanitize query parameters individually since req.query is a getter
     for (const key in req.query) {
       if (key.startsWith('$')) {
         delete req.query[key];
       } else {
-        // We can't reassign req.query[key] if it's a getter/setter issue, 
-        // but usually Express 5 allows modifying the nested properties of the query object.
         req.query[key] = sanitizeValue(req.query[key]);
       }
     }
@@ -114,19 +99,28 @@ app.use((req, res, next) => {
   next();
 });
 
+// ============ CORS CONFIGURATION ============
 app.use(cors({
-  origin: true,
-  credentials: true
+  origin: [
+    "https://localhost:3000",
+    "https://localhost:5173",
+    "https://192.168.226.1:3000",
+    "https://192.168.226.1:5173"
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Session middleware (required for OAuth)
+// ============ SESSION CONFIGURATION ============
 app.use(session({
   secret: process.env.SESSION_SECRET || 'fallback_secret',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: false, // Set to true in production with HTTPS
+    secure: true, // HTTPS only
     httpOnly: true,
+    sameSite: 'strict', // CSRF protection
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
@@ -135,137 +129,43 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Static files
+// ============ STATIC FILES ============
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Apply general API rate limiter to all routes
+// ============ RATE LIMITING ============
 app.use('/api/', apiLimiter);
 
+// ============ ROUTES ============
 app.use('/api/admin', adminRouter);
 app.use('/api/user', userRouter);
 app.use('/api/product', productRouter);
-app.use("/api/order", orderRouter);
-app.use("/api/auth", authRoutes);
-app.use("/api/chat", chatRoutes);
-app.use("/api/payment", paymentRouter);
-app.use("/api/cart", cartRouter);
-app.post("/payment-status", verifyEsewaPayment);
+app.use('/api/order', orderRouter);
+app.use('/api/auth', authRoutes);
+app.use('/api/payment', paymentRouter);
+app.use('/api/cart', cartRouter);
+app.post('/payment-status', verifyEsewaPayment);
 
-const onlineUsers = new Map();
-
-io.on("connection", (socket) => {
-  console.log("New client connected:", socket.id);
-  let currentUserId = null;
-
-  socket.on('register_user', ({ userId }) => {
-    console.log(`register_user event received for userId: ${userId}`);
-    if (!userId) return;
-    currentUserId = userId;
-    onlineUsers.set(userId, socket.id);
-    console.log(`User ${userId} connected with socket: ${socket.id}`);
-  });
-
-  socket.on('join_room', async ({ userId, partnerId }) => {
-    console.log(`join_room event received: userId=${userId}, partnerId=${partnerId}`);
-    if (!userId || !partnerId) return;
-    currentUserId = userId;
-    onlineUsers.set(userId, socket.id);
-    const roomId = getRoomId(userId, partnerId);
-    socket.join(roomId);
-    console.log(`User ${userId} joined room ${roomId}`);
-
-    try {
-      const undeliveredMessages = await getUndeliveredMessages(userId, partnerId);
-      const undeliveredCount = await markMessageAsDelivered(userId, partnerId);
-
-      if (undeliveredCount > 0) {
-        undeliveredMessages.forEach((msg) => {
-          io.to(roomId).emit("message_status", {
-            messageId: msg.messageId,
-            status: 'delivered',
-            sender: msg.sender,
-            receiver: msg.receiver
-          });
-        });
-      }
-
-      io.to(roomId).emit("user_status", { userId, status: 'online' });
-
-      if (onlineUsers.has(partnerId)) {
-        socket.emit("user_status", { userId: partnerId, status: 'online' });
-      } else {
-        const lastSeen = await getUserLastSeen(partnerId);
-        socket.emit("user_status", {
-          userId: partnerId,
-          status: 'offline',
-          lastSeen: lastSeen || new Date().toISOString()
-        });
-      }
-    } catch (err) {
-      console.error("Error joining room:", err);
-    }
-  });
-
-  socket.on("sent_message", async (message) => {
-    console.log("sent_message received:", message);
-    const { messageId, sender, receiver, message: text } = message;
-    if (!messageId || !sender || !receiver || !text) {
-      console.log("sent_message missing required fields");
-      return;
-    }
-
-    const roomId = getRoomId(sender, receiver);
-    try {
-      await createMessage({ ...message, status: 'sent', roomId });
-      console.log(`Message saved to DB with id ${messageId}`);
-    } catch (e) {
-      console.error("Error saving message:", e);
-    }
-
-    if (onlineUsers.has(receiver)) {
-      message.status = 'delivered';
-      await updateMessageStatus(messageId, 'delivered');
-      console.log(`Message status updated to delivered for messageId ${messageId}`);
-    } else {
-      message.status = 'sent';
-      console.log(`Receiver offline, message status remains sent for messageId ${messageId}`);
-    }
-
-    io.to(roomId).emit("message", message);
-    console.log(`Message emitted to room ${roomId}`);
-
-    if (onlineUsers.has(receiver)) {
-      const receiverSocket = io.sockets.sockets.get(onlineUsers.get(receiver));
-      const senderUser = await User.findById(sender).select("username");
-
-      if (receiverSocket && !receiverSocket.rooms.has(roomId)) {
-        receiverSocket.emit("notification", {
-          senderId: sender,
-          senderName: senderUser?.username,
-          messageId,
-          message: text
-        });
-        console.log(`Notification sent to receiver socket`);
-      }
-    }
-  });
-
-  socket.on("disconnect", async () => {
-    console.log(`Client disconnected: ${socket.id} userId: ${currentUserId}`);
-    if (currentUserId) {
-      if (onlineUsers.get(currentUserId) === socket.id) {
-        onlineUsers.delete(currentUserId);
-        console.log(`User ${currentUserId} removed from onlineUsers`);
-      }
-      const lastSeen = new Date().toISOString();
-      await updateUserLastSeen(currentUserId, lastSeen);
-      io.emit("user_status", { userId: currentUserId, status: 'offline', lastSeen });
-    }
+// ============ HEALTH CHECK ============
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'API working',
+    protocol: req.protocol,
+    secure: req.secure
   });
 });
 
+// ============ ERROR HANDLING (Optional - Add this for better error handling) ============
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(err.status || 500).json({ 
+    error: err.message || 'Internal Server Error' 
+  });
+});
 
-app.get("/", (req, res) => res.send("API working"));
+// ============ 404 HANDLER ============
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
 
 export { httpServer };
 export default app;
