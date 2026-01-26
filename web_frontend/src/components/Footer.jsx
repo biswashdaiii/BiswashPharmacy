@@ -33,7 +33,7 @@ const Footer = () => {
       <div>
         {/* =======copywritht text====== */}
         <hr />
-        <p className='py-5 text-sm text-center'>copyright @2025 gharko doctor with all right reserved</p>
+        <p className='py-5 text-sm text-center'>copyright @2025 gharko pharmacy with all right reserved</p>
       </div>
     </div>
   )

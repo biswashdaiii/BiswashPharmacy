@@ -110,12 +110,7 @@ const PlaceOrder = () => {
                 </div>
                 <input required onChange={onChangeHandler} name='fullName' value={formData.fullName} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='Full name' />
                 <input required onChange={onChangeHandler} name='phone' value={formData.phone} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='Phone number (10 digits)' maxLength={10} />
-                <select required onChange={onChangeHandler} name='address' value={formData.address} className='border border-gray-300 rounded py-1.5 px-3.5 w-full bg-white'>
-                    <option value="">Select Delivery City</option>
-                    {nepaliCities.map(city => (
-                        <option key={city} value={city}>{city}</option>
-                    ))}
-                </select>
+                <input required onChange={onChangeHandler} name='address' value={formData.address} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='City / Address' />
             </div>
 
             {/* Right Side */}

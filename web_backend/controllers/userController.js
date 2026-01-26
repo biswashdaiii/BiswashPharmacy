@@ -1,9 +1,11 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import userModel from "../models/userModel.js";
 import { validatePassword } from "../utils/passwordValidator.js";
-import { logAuth, logError, logSecurity } from "../config/logger.js";
+import { logAuth, logError, logSecurity, logCriticalSecurity } from "../config/logger.js";
 import { generateOTP, sendOTPEmail } from "../utils/emailService.js";
+import { encrypt, decrypt } from "../utils/encryption.js";
 
 
 // console.log("JWT Secret:", JWT_SECRET);
@@ -52,20 +54,35 @@ const registerUser = async (req, res) => {
       password: hashedPassword,
       gender,
       dob,
-      phone,
-      address,
+      phone: phone ? encrypt(phone) : phone, // Encrypt phone
+      address: address ? encrypt(address) : address, // Encrypt address
       previousPasswords: [hashedPassword], // Initial password in history
       passwordLastChangedAt: Date.now()
     });
 
-    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "24h" });
+    // Generate access and refresh tokens
+    const accessToken = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ id: user._id }, process.env.REFRESH_SECRET || JWT_SECRET, { expiresIn: '7d' });
 
-    // Set JWT as HttpOnly cookie
-    res.cookie('token', token, {
+    // Hash and store refresh token
+    const hashedRefreshToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    await userModel.findByIdAndUpdate(user._id, {
+      $push: { refreshTokens: hashedRefreshToken }
+    });
+
+    // Set tokens as HttpOnly cookies
+    res.cookie('accessToken', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true,
       sameSite: 'strict',
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      maxAge: 15 * 60 * 1000 // 15 minutes
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
     logAuth('USER_REGISTERED', {
@@ -76,7 +93,7 @@ const registerUser = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      token, // Still returning for compatibility with existing frontend logic if needed, but cookie is primary
+      token: accessToken, // For compatibility
       user: {
         _id: user._id,
         name: user.name,
@@ -132,6 +149,7 @@ const loginUser = async (req, res) => {
       if (failedAttempts >= 5) {
         updateData.lockUntil = new Date(Date.now() + 15 * 60 * 1000); // Lock for 15 mins
         logSecurity('ACCOUNT_LOCKED', { email, userId: user._id, ip: req.ip });
+        logCriticalSecurity('ACCOUNT_LOCKED', { email, userId: user._id, ip: req.ip });
       }
 
       await userModel.findByIdAndUpdate(user._id, updateData);
@@ -184,15 +202,29 @@ const loginUser = async (req, res) => {
       });
     }
 
-    // No 2FA - issue token immediately
-    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "24h" });
+    // No 2FA - issue tokens immediately
+    const accessToken = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ id: user._id }, process.env.REFRESH_SECRET || JWT_SECRET, { expiresIn: '7d' });
 
-    // Set JWT as HttpOnly cookie
-    res.cookie('token', token, {
+    // Hash and store refresh token
+    const hashedRefreshToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    await userModel.findByIdAndUpdate(user._id, {
+      $push: { refreshTokens: hashedRefreshToken }
+    });
+
+    // Set tokens as HttpOnly cookies
+    res.cookie('accessToken', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true,
       sameSite: 'strict',
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      maxAge: 15 * 60 * 1000 // 15 minutes
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
     // Check for password expiration (90 days)
@@ -207,10 +239,19 @@ const loginUser = async (req, res) => {
       passwordExpired
     });
 
+    // Log admin access
+    if (user.role === 'admin') {
+      logCriticalSecurity('ADMIN_ACCESS', {
+        userId: user._id,
+        email: user.email,
+        ip: req.ip
+      });
+    }
+
     res.status(200).json({
       success: true,
       requires2FA: false,
-      token,
+      token: accessToken,
       passwordExpired,
       user: {
         _id: user._id,
@@ -243,12 +284,30 @@ const getProfile = async (req, res) => {
       return res.status(401).json({ success: false, message: "Unauthorized: No user ID" });
     }
 
-    const userData = await userModel.findById(userId).select("-password");
+    const userData = await userModel.findById(userId).select("-password -refreshTokens");
     if (!userData) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    res.json({ success: true, userData });
+    // Decrypt and parse sensitive fields
+    let decryptedAddress = userData.address ? decrypt(userData.address) : userData.address;
+    try {
+      // If it looks like JSON, parse it (for legacy object support)
+      if (typeof decryptedAddress === 'string' && decryptedAddress.startsWith('{')) {
+        const parsed = JSON.parse(decryptedAddress);
+        decryptedAddress = parsed.line1 || parsed.line2 || decryptedAddress;
+      }
+    } catch (e) {
+      // Keep as string if parsing fails
+    }
+
+    const decryptedUser = {
+      ...userData.toObject(),
+      phone: userData.phone ? decrypt(userData.phone) : userData.phone,
+      address: decryptedAddress
+    };
+
+    res.json({ success: true, userData: decryptedUser });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: error.message });
@@ -281,8 +340,8 @@ const updateUserProfile = async (req, res) => {
     const updatedFields = {
       name,
       email,
-      phone,
-      address,
+      phone: encrypt(phone), // Encrypt phone
+      address: encrypt(address), // Encrypt address
     };
 
     if (imageFile) {
@@ -293,16 +352,31 @@ const updateUserProfile = async (req, res) => {
       userId,
       updatedFields,
       { new: true }
-    ).select("-password");
+    ).select("-password -refreshTokens");
 
     if (!updatedUser) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
+    // Decrypt for response
+    let decryptedAddress = updatedUser.address ? decrypt(updatedUser.address) : updatedUser.address;
+    try {
+      if (typeof decryptedAddress === 'string' && decryptedAddress.startsWith('{')) {
+        const parsed = JSON.parse(decryptedAddress);
+        decryptedAddress = parsed.line1 || parsed.line2 || decryptedAddress;
+      }
+    } catch (e) { }
+
+    const decryptedUser = {
+      ...updatedUser.toObject(),
+      phone: decrypt(updatedUser.phone),
+      address: decryptedAddress
+    };
+
     res.json({
       success: true,
       message: "Profile updated successfully",
-      user: updatedUser,
+      user: decryptedUser,
     });
   } catch (error) {
     console.error("Error updating profile:", error);
@@ -332,6 +406,7 @@ const verifyOTP = async (req, res) => {
     if (user.otpAttempts >= 3) {
       await userModel.findByIdAndUpdate(userId, { otp: null, otpExpiry: null });
       logSecurity('OTP_MAX_ATTEMPTS', { userId, ip: req.ip });
+      logCriticalSecurity('OTP_MAX_ATTEMPTS', { userId, email: user.email, ip: req.ip });
       return res.status(429).json({ success: false, message: "Too many attempts. Please login again." });
     }
 
@@ -342,16 +417,30 @@ const verifyOTP = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid verification code" });
     }
 
-    // OTP verified - clear OTP and issue token
+    // OTP verified - clear OTP and issue tokens
     await userModel.findByIdAndUpdate(userId, { otp: null, otpExpiry: null, otpAttempts: 0 });
 
-    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "24h" });
+    const accessToken = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ id: user._id }, process.env.REFRESH_SECRET || JWT_SECRET, { expiresIn: '7d' });
 
-    res.cookie('token', token, {
+    // Hash and store refresh token
+    const hashedRefreshToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    await userModel.findByIdAndUpdate(user._id, {
+      $push: { refreshTokens: hashedRefreshToken }
+    });
+
+    res.cookie('accessToken', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true,
       sameSite: 'strict',
-      maxAge: 24 * 60 * 60 * 1000
+      maxAge: 15 * 60 * 1000
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
     // Check for password expiration (90 days)
@@ -361,9 +450,18 @@ const verifyOTP = async (req, res) => {
 
     logAuth('USER_LOGGED_IN_2FA', { userId: user._id, email: user.email, ip: req.ip, passwordExpired });
 
+    // Log admin access
+    if (user.role === 'admin') {
+      logCriticalSecurity('ADMIN_ACCESS', {
+        userId: user._id,
+        email: user.email,
+        ip: req.ip
+      });
+    }
+
     res.status(200).json({
       success: true,
-      token,
+      token: accessToken,
       passwordExpired,
       user: {
         _id: user._id,
@@ -492,6 +590,172 @@ const changePassword = async (req, res) => {
   }
 };
 
+// Refresh token endpoint
+const refreshAccessToken = async (req, res) => {
+  const JWT_SECRET = process.env.SECRET?.trim();
+  const REFRESH_SECRET = process.env.REFRESH_SECRET?.trim() || JWT_SECRET;
+
+  try {
+    const { refreshToken } = req.cookies;
+
+    if (!refreshToken) {
+      return res.status(401).json({ success: false, message: "Refresh token required" });
+    }
+
+    // Verify refresh token
+    let decoded;
+    try {
+      decoded = jwt.verify(refreshToken, REFRESH_SECRET);
+    } catch (error) {
+      return res.status(401).json({ success: false, message: "Invalid or expired refresh token" });
+    }
+
+    // Check if refresh token exists in database
+    const hashedRefreshToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    const user = await userModel.findById(decoded.id);
+
+    if (!user || !user.refreshTokens.includes(hashedRefreshToken)) {
+      return res.status(401).json({ success: false, message: "Refresh token not found or revoked" });
+    }
+
+    // Remove old refresh token (rotation)
+    await userModel.findByIdAndUpdate(user._id, {
+      $pull: { refreshTokens: hashedRefreshToken }
+    });
+
+    // Generate new tokens
+    const newAccessToken = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '15m' });
+    const newRefreshToken = jwt.sign({ id: user._id }, REFRESH_SECRET, { expiresIn: '7d' });
+
+    // Store new refresh token
+    const newHashedRefreshToken = crypto.createHash('sha256').update(newRefreshToken).digest('hex');
+    await userModel.findByIdAndUpdate(user._id, {
+      $push: { refreshTokens: newHashedRefreshToken }
+    });
+
+    // Set new cookies
+    res.cookie('accessToken', newAccessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000
+    });
+
+    res.cookie('refreshToken', newRefreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    logAuth('TOKEN_REFRESHED', { userId: user._id, ip: req.ip });
+
+    res.json({
+      success: true,
+      token: newAccessToken
+    });
+  } catch (error) {
+    logError(error, { ip: req.ip });
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// Forgot Password
+const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await userModel.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+
+    // Hash token for database storage
+    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    // Set token and expiry (1 hour)
+    user.resetPasswordToken = resetTokenHash;
+    user.resetPasswordExpiry = Date.now() + 3600000; // 1 hour
+
+    await user.save();
+
+    // Send email with PLAIN token
+    const emailSent = await sendPasswordResetEmail(user.email, resetToken, user.name);
+
+    if (!emailSent) {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpiry = undefined;
+      await user.save();
+      return res.status(500).json({ success: false, message: "Failed to send reset email" });
+    }
+
+    logAuth('PASSWORD_RESET_REQUESTED', { userId: user._id, email: user.email, ip: req.ip });
+    res.json({ success: true, message: "Password reset link sent to email" });
+  } catch (error) {
+    logError(error, { email });
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// Reset Password
+const resetPassword = async (req, res) => {
+  const { token, newPassword } = req.body;
+  try {
+    // Hash provided token to compare with DB
+    const resetTokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await userModel.findOne({
+      resetPasswordToken: resetTokenHash,
+      resetPasswordExpiry: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: "Invalid or expired password reset token" });
+    }
+
+    // Validate new password
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password does not meet security requirements',
+        errors: passwordValidation.errors
+      });
+    }
+
+    // Check password history
+    for (const historicHash of user.previousPasswords || []) {
+      const isReused = await bcrypt.compare(newPassword, historicHash);
+      if (isReused) {
+        return res.status(400).json({
+          success: false,
+          message: "You cannot reuse any of your last 5 passwords"
+        });
+      }
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update user
+    user.password = hashedPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpiry = undefined;
+    user.passwordLastChangedAt = Date.now();
+    user.previousPasswords = [hashedPassword, ...(user.previousPasswords || [])].slice(0, 5);
+
+    await user.save();
+
+    logAuth('PASSWORD_RESET_SUCCESS', { userId: user._id, email: user.email, ip: req.ip });
+    res.json({ success: true, message: "Password reset successfully. You can now login." });
+  } catch (error) {
+    logError(error, { ip: req.ip });
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 export {
   registerUser,
   loginUser,
@@ -501,5 +765,9 @@ export {
   verifyOTP,
   toggle2FA,
   resendOTP,
-  changePassword
+  changePassword,
+  refreshAccessToken,
+  forgotPassword,
+  resetPassword,
+  sendOTPEmail
 };

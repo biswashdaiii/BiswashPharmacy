@@ -14,25 +14,14 @@ export const useAuthStore = create(
       setAuthUser: (user) => set({ authUser: user }),
 
       connectSocket: () => {
+        return;
+        /* 
         const user = get().authUser;
-
-        // ✅ Prevent connection if user or user._id is not defined
-        if (!user || !user._id || get().socket) {
-          console.warn("🔌 Skipping socket connection: user._id is missing or socket already connected.");
-          return;
-        }
-
-        console.log("🔌 Connecting socket for userId:", user._id);
-
-        const socket = io(BASE_URL, {
-          query: { userId: user._id },
-        });
-
+        if (!user || !user._id || get().socket) return;
+        const socket = io(BASE_URL, { query: { userId: user._id } });
         set({ socket });
-
-        socket.on("getOnlineUsers", (users) => {
-          set({ onlineUsers: users });
-        });
+        socket.on("getOnlineUsers", (users) => set({ onlineUsers: users })); 
+        */
       },
 
       disconnectSocket: () => {

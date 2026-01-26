@@ -103,4 +103,55 @@ export const logSecurity = (event, data) => {
     });
 };
 
+// Track critical security events for alerting
+const criticalEventCounts = new Map();
+
+export const logCriticalSecurity = (event, data) => {
+    const eventKey = `${event}_${data.userId || data.email || 'unknown'}`;
+    const now = Date.now();
+    const oneHour = 60 * 60 * 1000;
+
+    // Get or initialize event tracking
+    if (!criticalEventCounts.has(eventKey)) {
+        criticalEventCounts.set(eventKey, []);
+    }
+
+    const events = criticalEventCounts.get(eventKey);
+
+    // Remove events older than 1 hour
+    const recentEvents = events.filter(timestamp => now - timestamp < oneHour);
+    recentEvents.push(now);
+    criticalEventCounts.set(eventKey, recentEvents);
+
+    // Determine if this is a critical alert
+    let isCritical = false;
+    let alertReason = '';
+
+    if (event === 'ACCOUNT_LOCKED' && recentEvents.length >= 3) {
+        isCritical = true;
+        alertReason = `Multiple account lockouts detected (${recentEvents.length} in 1 hour)`;
+    } else if (event === 'ADMIN_ACCESS') {
+        isCritical = true;
+        alertReason = 'Admin access detected';
+    } else if (event === 'OTP_MAX_ATTEMPTS' && recentEvents.length >= 3) {
+        isCritical = true;
+        alertReason = `Multiple failed MFA attempts (${recentEvents.length} in 1 hour)`;
+    }
+
+    securityLogger.error('CRITICAL_SECURITY_ALERT', {
+        event,
+        isCritical,
+        alertReason: isCritical ? alertReason : 'N/A',
+        occurrencesInLastHour: recentEvents.length,
+        ...data,
+        timestamp: new Date().toISOString()
+    });
+
+    // In production, you could send email/SMS/Slack notification here
+    if (isCritical) {
+        console.error(`🚨 CRITICAL SECURITY ALERT: ${alertReason}`);
+    }
+};
+
+
 export default logger;

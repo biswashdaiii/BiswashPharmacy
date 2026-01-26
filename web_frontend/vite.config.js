@@ -1,14 +1,25 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
+import fs from 'fs'
+import path from 'path'
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
+    https: {
+      key: fs.readFileSync(path.resolve(__dirname, '../ssl/private-key.pem')),
+      cert: fs.readFileSync(path.resolve(__dirname, '../ssl/certificate.pem')),
+    },
+    host: true,
     port: 5173,
+    hmr: {
+      host: 'localhost',
+      port: 5173,
+      protocol: 'wss'
+    },
     proxy: {
       '/api': {
-        target: 'http://localhost:5050',
+        target: 'https://localhost:5050',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, ''),

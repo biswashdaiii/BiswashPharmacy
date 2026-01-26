@@ -30,9 +30,17 @@ const USerSchema = new mongoose.Schema(
         otpExpiry: { type: Date, default: null },
         otpAttempts: { type: Number, default: 0 },
 
+        // Password Reset
+        resetPasswordToken: { type: String, default: null },
+        resetPasswordExpiry: { type: Date, default: null },
+
         // Brute-force protection
         failedLoginAttempts: { type: Number, default: 0 },
         lockUntil: { type: Date, default: null },
+
+        // Refresh tokens for JWT rotation
+        refreshTokens: { type: [String], default: [] }, // Store hashed refresh tokens
+
         cartData: { type: Object, default: {} },
 
 

@@ -1,6 +1,7 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import User from '../models/userModel.js';
+import { encrypt } from '../utils/encryption.js';
 
 passport.use(
     new GoogleStrategy(
@@ -28,12 +29,15 @@ passport.use(
                     profileImage: profile.photos[0]?.value || '',
                     gender: 'Not Selected',
                     dob: 'Not selected',
-                    phone: '0000000000',
-                    address: { line1: '', line2: '' },
+                    phone: encrypt('0000000000'),
+                    address: encrypt(JSON.stringify({ line1: '', line2: '' })),
+                    previousPasswords: [],
+                    passwordLastChangedAt: Date.now()
                 });
 
                 return done(null, user);
             } catch (error) {
+                console.error('Passport Google Strategy Error:', error);
                 return done(error, null);
             }
         }

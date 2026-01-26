@@ -1,17 +1,15 @@
 import React, { useState, useContext, useRef, useEffect } from "react";
 import axios from "axios";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { ShopContext } from "../context/ShopContext";
 import { useAuthStore } from "../store/useAuthStore";
 import ReCAPTCHA from "react-google-recaptcha";
-import { GoogleLogin } from '@react-oauth/google';
 import PasswordStrengthMeter from "../components/PasswordStrengthMeter";
 
 const Login = () => {
-  const { backendUrl, token, setToken, navigate } = useContext(ShopContext);
-
+  const { backendUrl, setToken, navigate } = useContext(ShopContext);
   const [state, setState] = useState("Sign up");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,7 +31,11 @@ const Login = () => {
         ? backendUrl + "/api/user/register"
         : backendUrl + "/api/user/login";
 
-    // Frontend Validation for Sign up
+    if (!recaptchaToken) {
+      toast.error("Please verify that you are not a robot.");
+      return;
+    }
+
     if (state === "Sign up") {
       const nameRegex = /^[a-zA-Z\s]{3,50}$/;
       if (!nameRegex.test(name)) {
@@ -43,7 +45,7 @@ const Login = () => {
 
       const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\\/`~])[A-Za-z\d!@#$%^&*(),.?":{}|<>_\-+=\[\]\\\/`~]{8,}$/;
       if (!passwordRegex.test(password)) {
-        toast.error("Password must be 8+ characters and include uppercase, lowercase, number, and special character.");
+        toast.error("Password must be 8+ characters with uppercase, lowercase, number, and special character.");
         return;
       }
 
@@ -77,6 +79,7 @@ const Login = () => {
         setPassword("");
         setRecaptchaToken("");
         recaptchaRef.current?.reset();
+
         if (res.data.requires2FA) {
           setShowOTP(true);
           setUserIdForOTP(res.data.userId);
@@ -84,61 +87,61 @@ const Login = () => {
           return;
         }
 
-        if (res.data.token && res.data.user) {
-          setToken(res.data.token);
-          localStorage.setItem("token", res.data.token);
-          localStorage.setItem("user", JSON.stringify(res.data.user)); // ✅ Store user info
-          const { setAuthUser, connectSocket } = useAuthStore.getState();
-          setAuthUser(res.data.user);
-          connectSocket();
+        return; // Stop here to prevent auto-login
+      }
 
-          toast.success("Login successful!");
-          navigate("/");
-        }
+      if (res.data.token && res.data.user) {
+        setToken(res.data.token);
+        localStorage.setItem("token", res.data.token);
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+        const { setAuthUser, connectSocket } = useAuthStore.getState();
+        setAuthUser(res.data.user);
+        connectSocket();
+        toast.success("Login successful!");
+        navigate("/");
       }
     } catch (error) {
       console.error("Error:", error.response?.data || error.message);
-      toast.error(
-        "Failed: " + (error.response?.data?.message || error.message)
-      );
-      // Reset reCAPTCHA on error
+      toast.error("Failed: " + (error.response?.data?.message || error.message));
       setRecaptchaToken("");
       recaptchaRef.current?.reset();
     }
   };
 
-  // Handle OAuth callback from URL parameters
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const tokenFromUrl = urlParams.get('token');
-    const userFromUrl = urlParams.get('user');
+    const success = urlParams.get('success');
     const error = urlParams.get('error');
 
     if (error) {
       toast.error('Google Sign-In failed. Please try again.');
-      // Clean URL
       window.history.replaceState({}, document.title, '/login');
-    } else if (tokenFromUrl && userFromUrl) {
-      try {
-        const user = JSON.parse(decodeURIComponent(userFromUrl));
-        setToken(tokenFromUrl);
-        localStorage.setItem('token', tokenFromUrl);
-        localStorage.setItem('user', JSON.stringify(user));
-
-        const { setAuthUser, connectSocket } = useAuthStore.getState();
-        setAuthUser(user);
-        connectSocket();
-
-        toast.success('Google Sign-In successful!');
-        navigate('/');
-      } catch (err) {
-        console.error('Error parsing OAuth response:', err);
-        toast.error('Authentication error. Please try again.');
-      }
-      // Clean URL
-      window.history.replaceState({}, document.title, '/login');
+    } else if (success) {
+      // Tokens are in httpOnly cookies, just need to update state
+      const fetchProfile = async () => {
+        try {
+          const res = await axios.get(backendUrl + '/api/user/get-profile');
+          if (res.data.success) {
+            setToken('true'); // Just a flag, actual token is cookie
+            localStorage.setItem('token', 'true');
+            localStorage.setItem('user', JSON.stringify(res.data.userData));
+            const { setAuthUser, connectSocket } = useAuthStore.getState();
+            setAuthUser(res.data.userData);
+            connectSocket();
+            toast.success('Google Sign-In successful!');
+            navigate('/');
+          }
+        } catch (err) {
+          console.error('Error fetching profile:', err);
+          toast.error('Authentication error. Please try again.');
+        }
+      };
+      fetchProfile();
+      // Use clean URL immediately to prevent multiple triggers
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
     }
-  }, [setToken, navigate]);
+  }, [setToken, navigate, backendUrl]);
 
   const handleGoogleSignIn = () => {
     window.location.href = `${backendUrl}/api/user/auth/google`;
@@ -159,7 +162,6 @@ const Login = () => {
         const { setAuthUser, connectSocket } = useAuthStore.getState();
         setAuthUser(res.data.user);
         connectSocket();
-
         toast.success("Login successful!");
         navigate("/");
       }
@@ -179,22 +181,13 @@ const Login = () => {
 
   return (
     <>
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        pauseOnHover
-        theme="colored"
-      />
+      <ToastContainer position="top-right" autoClose={3000} pauseOnHover theme="colored" />
 
       {showOTP ? (
-        <form
-          onSubmit={onVerifyOTPHandler}
-          className="min-h-[100vh] flex items-center"
-        >
+        <form onSubmit={onVerifyOTPHandler} className="min-h-[100vh] flex items-center">
           <div className="flex flex-col gap-3 m-auto items-center p-8 min-w-[340px] sm:min-w-96 border rounded-xl text-zinc-600 text-sm shadow-lg">
             <p className="text-2xl font-semibold text-primary">Two-Factor Authentication</p>
             <p className="text-center">Please enter the 6-digit verification code sent to your email.</p>
-
             <div className="w-full mt-4">
               <input
                 className="border border-zinc-300 rounded w-full p-4 text-center text-2xl tracking-[1em] focus:border-primary outline-none"
@@ -206,60 +199,38 @@ const Login = () => {
                 required
               />
             </div>
-
-            <button
-              type="submit"
-              className="bg-primary text-white w-full py-2 rounded-md text-base mt-4 hover:bg-opacity-90 transition"
-            >
+            <button type="submit" className="bg-primary text-white w-full py-2 rounded-md text-base mt-4 hover:bg-opacity-90 transition">
               Verify Code
             </button>
-
             <div className="flex flex-col items-center gap-2 mt-4">
               <p className="text-gray-500">Didn't receive code?</p>
-              <button
-                type="button"
-                onClick={onResendOTP}
-                className="text-primary hover:underline"
-              >
+              <button type="button" onClick={onResendOTP} className="text-primary hover:underline">
                 Resend Verification Code
               </button>
-              <button
-                type="button"
-                onClick={() => setShowOTP(false)}
-                className="text-gray-400 text-xs mt-2 hover:underline"
-              >
+              <button type="button" onClick={() => setShowOTP(false)} className="text-gray-400 text-xs mt-2 hover:underline">
                 Back to Login
               </button>
             </div>
           </div>
         </form>
       ) : (
-        <form
-          onSubmit={onSubmitHandler}
-          className="min-h-[100vh] flex items-center"
-        >
+        <form onSubmit={onSubmitHandler} className="min-h-[100vh] flex items-center">
           <div className="flex flex-col gap-3 m-auto items-start p-8 min-w-[340px] sm:min-w-96 border rounded-xl text-zinc-600 text-sm shadow-lg">
-            <p className="text-2xl font-semibold">
-              {state === "Sign up" ? "Create Account" : "Login"}
-            </p>
-            <p>
-              Please {state === "Sign up" ? "sign up" : "login"} to shop for medicines
-            </p>
+            <p className="text-2xl font-semibold">{state === "Sign up" ? "Create Account" : "Login"}</p>
+            <p>Please {state === "Sign up" ? "sign up" : "login"} to shop for medicines</p>
 
             {state === "Sign up" && (
-              <>
-                <div className="w-full">
-                  <p>Full Name</p>
-                  <input
-                    className="border border-zinc-300 rounded w-full p-2 mt-1"
-                    type="text"
-                    onChange={(e) => setName(e.target.value)}
-                    value={name}
-                    placeholder="Enter your full name"
-                    required
-                  />
-                </div>
-              </>
+              <div className="w-full">
+                <p>Full Name</p>
+                <input
+                  className="border border-zinc-300 rounded w-full p-2 mt-1"
+                  type="text"
+                  onChange={(e) => setName(e.target.value)}
+                  value={name}
+                  placeholder="Enter your full name"
+                  required
+                />
+              </div>
             )}
 
             <div className="w-full">
@@ -274,7 +245,12 @@ const Login = () => {
             </div>
 
             <div className="w-full">
-              <p>Password</p>
+              <div className="flex justify-between items-center">
+                <p>Password</p>
+                <p onClick={() => navigate('/forgot-password')} className="text-primary text-xs cursor-pointer hover:underline">
+                  Forgot your password?
+                </p>
+              </div>
               <div className="relative">
                 <input
                   className="border border-zinc-300 rounded w-full p-2 mt-1"
@@ -327,8 +303,6 @@ const Login = () => {
 
             {state === "Sign up" && <PasswordStrengthMeter password={password} />}
 
-
-            {/* reCAPTCHA */}
             <div className="w-full flex justify-center my-3">
               <ReCAPTCHA
                 ref={recaptchaRef}
@@ -338,26 +312,17 @@ const Login = () => {
               />
             </div>
 
-            <button
-              type="submit"
-              className="bg-primary text-white w-full py-2 rounded-md text-base focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50"
-            >
+            <button type="submit" className="bg-primary text-white w-full py-2 rounded-md text-base focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50">
               {state === "Sign up" ? "Create Account" : "Login"}
             </button>
 
-            {/* Divider */}
             <div className="flex items-center w-full my-3">
               <div className="flex-grow border-t border-gray-300"></div>
               <span className="px-3 text-gray-500 text-sm">OR</span>
               <div className="flex-grow border-t border-gray-300"></div>
             </div>
 
-            {/* Google Sign-In Button */}
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              className="flex items-center justify-center gap-2 w-full py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition"
-            >
+            <button type="button" onClick={handleGoogleSignIn} className="flex items-center justify-center gap-2 w-full py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition">
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -370,20 +335,14 @@ const Login = () => {
             {state === "Sign up" ? (
               <p>
                 Already have an account?{" "}
-                <span
-                  onClick={() => setState("Login")}
-                  className="text-primary underline cursor-pointer"
-                >
+                <span onClick={() => setState("Login")} className="text-primary underline cursor-pointer">
                   Login here
                 </span>
               </p>
             ) : (
               <p>
                 Create a new account?{" "}
-                <span
-                  onClick={() => setState("Sign up")}
-                  className="text-primary underline cursor-pointer"
-                >
+                <span onClick={() => setState("Sign up")} className="text-primary underline cursor-pointer">
                   Click here
                 </span>
               </p>

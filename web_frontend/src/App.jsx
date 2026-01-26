@@ -11,7 +11,8 @@ import Login from "./pages/Login";
 import PlaceOrder from "./pages/PlaceOrder";
 import Orders from "./pages/Orders";
 import MyProfile from "./pages/MyProfile";
-import ChatPage from "./pages/ChatPage.jsx";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -36,9 +37,8 @@ const App = () => {
         <Route path="/place-order" element={<PlaceOrder />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/my-profile" element={<MyProfile />} />
-
-        {/* Chat routes */}
-        <Route path="/chat" element={<ChatPage />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* Payment result routes */}
         <Route path="/payment-success" element={<Success />} />

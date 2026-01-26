@@ -79,7 +79,8 @@ export const sendOTPEmail = async (email, otp, userName = 'User') => {
 export const sendPasswordResetEmail = async (email, resetToken, userName = 'User') => {
     try {
         const transporter = createTransporter();
-        const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
 
         const mailOptions = {
             from: `"NepGrocery Security" <${process.env.EMAIL_USER}>`,

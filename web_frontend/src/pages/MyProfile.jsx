@@ -42,7 +42,7 @@ const MyProfile = () => {
     setEditData({
       name: userData.name || "",
       phone: userData.phone || "",
-      address: userData.address || "",
+      address: typeof userData.address === 'object' ? (userData.address.line1 || "") : (userData.address || ""),
       image: null,
     });
     setImagePreview(
@@ -240,7 +240,11 @@ const MyProfile = () => {
               ))}
             </select>
           ) : (
-            <p className="text-gray-700">{userData.address || "Not set"}</p>
+            <p className="text-gray-700">
+              {typeof userData.address === 'object'
+                ? (userData.address.line1 || userData.address.line2 || "Not set")
+                : (userData.address || "Not set")}
+            </p>
           )}
         </div>
       </div>

@@ -28,19 +28,18 @@ const __dirname = dirname(__filename);
 connectDB();
 const app = express();
 
-// ============ SSL/HTTPS CONFIGURATION ============
+// ======== HTTPS CONFIGURATION ========
 const options = {
   key: fs.readFileSync(path.join(__dirname, '../ssl/private-key.pem')),
-  cert: fs.readFileSync(path.join(__dirname, '../ssl/certificate.pem'))
+  cert: fs.readFileSync(path.join(__dirname, '../ssl/certificate.pem')),
 };
 
 const httpServer = https.createServer(options, app);
 
-// Trust proxy - required for rate limiting to work correctly
+// ======== TRUST PROXY ========
 app.set('trust proxy', 1);
 
-// ============ SECURITY MIDDLEWARE ============
-// Security middleware with enhanced Content-Security-Policy
+// ======== SECURITY MIDDLEWARE ========
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   contentSecurityPolicy: {
@@ -56,29 +55,23 @@ app.use(helmet({
   },
 }));
 
-// ============ BODY PARSING & COOKIES ============
+// ======== BODY PARSING & COOKIES ========
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// ============ INPUT SANITIZATION (XSS & NoSQL PROTECTION) ============
+// ======== INPUT SANITIZATION ========
 const sanitizeValue = (value) => {
   if (typeof value === 'string') {
-    // Basic XSS protection: remove <script> and other common tags
     return value.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, "")
       .replace(/on\w+="[^"]*"/gim, "")
       .replace(/javascript:[^"]*/gim, "");
   }
-  if (Array.isArray(value)) {
-    return value.map(sanitizeValue);
-  }
+  if (Array.isArray(value)) return value.map(sanitizeValue);
   if (value instanceof Object) {
     for (const key in value) {
-      if (key.startsWith('$')) {
-        delete value[key];
-      } else {
-        value[key] = sanitizeValue(value[key]);
-      }
+      if (key.startsWith('$')) delete value[key];
+      else value[key] = sanitizeValue(value[key]);
     }
   }
   return value;
@@ -89,53 +82,48 @@ app.use((req, res, next) => {
   if (req.params) sanitizeValue(req.params);
   if (req.query) {
     for (const key in req.query) {
-      if (key.startsWith('$')) {
-        delete req.query[key];
-      } else {
-        req.query[key] = sanitizeValue(req.query[key]);
-      }
+      if (key.startsWith('$')) delete req.query[key];
+      else req.query[key] = sanitizeValue(req.query[key]);
     }
   }
   next();
 });
 
-// ============ CORS CONFIGURATION ============
+// ======== CORS ========
 app.use(cors({
   origin: [
-    "https://localhost:3000",
     "https://localhost:5173",
-    "https://192.168.226.1:3000",
-    "https://192.168.226.1:5173"
+    "https://localhost:5174"
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'atoken', 'token']
 }));
 
-// ============ SESSION CONFIGURATION ============
+// ======== SESSION ========
 app.use(session({
   secret: process.env.SESSION_SECRET || 'fallback_secret',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: true, // HTTPS only
+    secure: true,
     httpOnly: true,
-    sameSite: 'strict', // CSRF protection
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    sameSite: 'strict',
+    maxAge: 24 * 60 * 60 * 1000
   }
 }));
 
-// Initialize Passport
+// ======== PASSPORT ========
 app.use(passport.initialize());
 app.use(passport.session());
 
-// ============ STATIC FILES ============
+// ======== STATIC FILES ========
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ============ RATE LIMITING ============
+// ======== RATE LIMITING ========
 app.use('/api/', apiLimiter);
 
-// ============ ROUTES ============
+// ======== ROUTES ========
 app.use('/api/admin', adminRouter);
 app.use('/api/user', userRouter);
 app.use('/api/product', productRouter);
@@ -145,24 +133,24 @@ app.use('/api/payment', paymentRouter);
 app.use('/api/cart', cartRouter);
 app.post('/payment-status', verifyEsewaPayment);
 
-// ============ HEALTH CHECK ============
+// ======== HEALTH CHECK ========
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     message: 'API working',
     protocol: req.protocol,
     secure: req.secure
   });
 });
 
-// ============ ERROR HANDLING (Optional - Add this for better error handling) ============
+// ======== ERROR HANDLING ========
 app.use((err, req, res, next) => {
   console.error('Error:', err);
-  res.status(err.status || 500).json({ 
-    error: err.message || 'Internal Server Error' 
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal Server Error'
   });
 });
 
-// ============ 404 HANDLER ============
+// ======== 404 ========
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });

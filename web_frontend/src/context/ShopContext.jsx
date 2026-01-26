@@ -6,6 +6,68 @@ import axios from 'axios'
 // Set axios defaults for security (cookies)
 axios.defaults.withCredentials = true;
 
+// Add axios interceptor for automatic token refresh
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+    failedQueue.forEach(prom => {
+        if (error) {
+            prom.reject(error);
+        } else {
+            prom.resolve(token);
+        }
+    });
+    failedQueue = [];
+};
+
+axios.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+        const originalRequest = error.config;
+
+        // If error is 401 and we haven't tried to refresh yet
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            if (isRefreshing) {
+                // If already refreshing, queue this request
+                return new Promise((resolve, reject) => {
+                    failedQueue.push({ resolve, reject });
+                }).then(() => {
+                    return axios(originalRequest);
+                }).catch(err => {
+                    return Promise.reject(err);
+                });
+            }
+
+            originalRequest._retry = true;
+            isRefreshing = true;
+
+            try {
+                // Try to refresh the token
+                const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://192.168.226.1:5050";
+                const response = await axios.post(`${backendUrl}/api/user/refresh-token`);
+
+                if (response.data.success) {
+                    processQueue(null, response.data.token);
+                    isRefreshing = false;
+                    return axios(originalRequest);
+                }
+            } catch (refreshError) {
+                processQueue(refreshError, null);
+                isRefreshing = false;
+
+                // Refresh failed - clear local storage and redirect to login
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+                return Promise.reject(refreshError);
+            }
+        }
+
+        return Promise.reject(error);
+    }
+);
+
 export const ShopContext = createContext();
 
 const ShopContextProvider = (props) => {
@@ -43,7 +105,13 @@ const ShopContextProvider = (props) => {
                 getUserCart(token);
             } catch (error) {
                 console.log(error)
-                toast.error(error.message)
+                if (error.response && error.response.status === 401) {
+                    localStorage.removeItem('token');
+                    setToken('');
+                    toast.error("Session expired. Please login again.");
+                } else {
+                    toast.error(error.message)
+                }
             }
         } else {
             setCartItems((prev) => {
@@ -89,7 +157,13 @@ const ShopContextProvider = (props) => {
                 await getUserCart(token);
             } catch (error) {
                 console.log(error)
-                toast.error(error.message)
+                if (error.response && error.response.status === 401) {
+                    localStorage.removeItem('token');
+                    setToken('');
+                    toast.error("Session expired. Please login again.");
+                } else {
+                    toast.error(error.message)
+                }
             }
         } else {
             setCartItems((prev) => {
@@ -127,7 +201,13 @@ const ShopContextProvider = (props) => {
             }
         } catch (error) {
             console.log(error)
-            toast.error(error.message)
+            if (error.response && error.response.status === 401) {
+                localStorage.removeItem('token');
+                setToken('');
+                // toast.error("Session expired. Please login again."); 
+            } else {
+                toast.error(error.message)
+            }
         }
     }
 

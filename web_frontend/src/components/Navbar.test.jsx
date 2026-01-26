@@ -19,14 +19,14 @@ test("renders 'Home' text in navbar", () => {
   expect(screen.getByText("Home")).toBeInTheDocument();
 });
 
-test("renders 'All Doctors' text in navbar", () => {
+test("renders 'Home' text in navbar", () => {
   renderNavbar({ token: null, setToken: () => {}, loading: false });
-  expect(screen.getByText("All Doctors")).toBeInTheDocument();
+  expect(screen.getByText("Home")).toBeInTheDocument();
 });
 
-test("renders 'Chat' text in navbar", () => {
+test("renders 'Collection' text in navbar", () => {
   renderNavbar({ token: null, setToken: () => {}, loading: false });
-  expect(screen.getByText("Chat")).toBeInTheDocument();
+  expect(screen.getByText("Collection")).toBeInTheDocument();
 });
 
 test("renders 'Contact' text in navbar", () => {

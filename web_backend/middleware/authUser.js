@@ -8,7 +8,7 @@ const JWT_SECRET = process.env.SECRET?.trim();
 export const authUser = async (req, res, next) => {
   try {
     // Check for token in cookies (HttpOnly) or Authorization header
-    let token = req.cookies.token;
+    let token = req.cookies.accessToken; // Changed from 'token' to 'accessToken'
 
     if (!token && req.headers.authorization) {
       token = req.headers.authorization.split(' ')[1];

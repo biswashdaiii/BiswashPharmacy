@@ -12,24 +12,7 @@ const AppContextProvider = (props) => {
     return savedUser ? JSON.parse(savedUser) : null;
   });
 
-  const [doctors, setDoctors] = useState([]);
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
-
-  const getDoctorsData = async () => {
-    try {
-      const { data } = await axios.get(`${backendUrl}/api/doctor/list`);
-      if (data.success) {
-        setDoctors(data.doctors);
-      }
-    } catch (err) {
-      console.error("Failed to fetch doctors:", err);
-    }
-  };
-
-  // Fetch doctors on initial load
-  useEffect(() => {
-    getDoctorsData();
-  }, []);
 
   // Sync user & token with Zustand store and connect socket only after user._id is ready
   useEffect(() => {
@@ -52,13 +35,11 @@ const AppContextProvider = (props) => {
   }, [token, userData]);
 
   const value = {
-    doctors,
     token,
     setToken,
     backendUrl,
     userData,
     setUserData,
-    getDoctorsData,
   };
 
   return (
