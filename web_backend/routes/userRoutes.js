@@ -1,9 +1,9 @@
 import express from "express";
-import { registerUser, loginUser, getUsers, getProfile, updateUserProfile, verifyOTP, toggle2FA, resendOTP, changePassword, refreshAccessToken, forgotPassword, resetPassword } from "../controllers/userController.js";
+import { registerUser, loginUser, getUsers, getProfile, updateUserProfile, verifyOTP, toggle2FA, resendOTP, changePassword, refreshAccessToken, forgotPassword, resetPassword, verifyResetOTP } from "../controllers/userController.js";
 import { authUser } from "../middleware/authUser.js";
 import { authAdmin } from "../middleware/authAdmin.js";
 import upload from "../middleware/multer.js";
-import { loginLimiter, registerLimiter } from "../middleware/rateLimiter.js";
+import { loginLimiter, registerLimiter, passwordResetLimiter } from "../middleware/rateLimiter.js";
 import { verifyRecaptcha } from "../middleware/recaptchaVerify.js";
 import passport from "../config/passport.js";
 import { googleOAuthCallback } from "../controllers/oauthController.js";
@@ -27,7 +27,7 @@ userRouter.get('/auth/google',
 );
 
 userRouter.get('/auth/google/callback',
-    passport.authenticate('google', { failureRedirect: 'http://localhost:5173/login?error=oauth_failed' }),
+    passport.authenticate('google', { failureRedirect: 'https://localhost:5173/login?error=oauth_failed' }),
     googleOAuthCallback
 );
 
@@ -37,7 +37,8 @@ userRouter.put('/update-profile', upload.single('image'), authUser, updateUserPr
 userRouter.post('/change-password', authUser, changePassword);
 
 // Password Reset Routes
-userRouter.post('/forgot-password', loginLimiter, forgotPassword);
-userRouter.post('/reset-password', loginLimiter, resetPassword);
+userRouter.post('/forgot-password', passwordResetLimiter, forgotPassword);
+userRouter.post('/verify-reset-otp', passwordResetLimiter, verifyResetOTP);
+userRouter.post('/reset-password', passwordResetLimiter, resetPassword);
 
 export default userRouter;

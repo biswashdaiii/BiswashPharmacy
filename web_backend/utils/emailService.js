@@ -113,4 +113,49 @@ export const sendPasswordResetEmail = async (email, resetToken, userName = 'User
     }
 };
 
-export default { generateOTP, sendOTPEmail, sendPasswordResetEmail };
+/**
+ * Send password reset OTP
+ * @param {string} email - Recipient email
+ * @param {string} otp - 6-digit OTP
+ * @param {string} userName - User's name
+ * @returns {Promise<boolean>} Success status
+ */
+export const sendPasswordResetOTP = async (email, otp, userName = 'User') => {
+    try {
+        const transporter = createTransporter();
+
+        const mailOptions = {
+            from: `"NepGrocery Security" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: 'Your Password Reset Code',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                    <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-bottom: 1px solid #eee;">
+                        <h1 style="color: #d9534f; margin: 0;">🔒 Password Reset</h1>
+                    </div>
+                    <div style="padding: 20px; line-height: 1.6; color: #333;">
+                        <p>Hello <strong>${userName}</strong>,</p>
+                        <p>We received a request to reset the password for your NepGrocery account. Use the code below to proceed:</p>
+                        <div style="background-color: #fff; border: 1px solid #ddd; padding: 15px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #333; margin: 20px 0; border-radius: 5px;">
+                            ${otp}
+                        </div>
+                        <p>This code will expire in <strong>10 minutes</strong>.</p>
+                        <p style="color: #777; font-size: 14px;">If you did not request this, please ignore this email. Your password will remain unchanged.</p>
+                    </div>
+                    <div style="background-color: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #777; border-top: 1px solid #eee;">
+                        <p>&copy; ${new Date().getFullYear()} NepGrocery Security Team. All rights reserved.</p>
+                    </div>
+                </div>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+        logAuth('PASSWORD_RESET_OTP_SENT', { email, success: true });
+        return true;
+    } catch (error) {
+        logError(error, { context: 'sendPasswordResetOTP', email });
+        return false;
+    }
+};
+
+export default { generateOTP, sendOTPEmail, sendPasswordResetEmail, sendPasswordResetOTP };

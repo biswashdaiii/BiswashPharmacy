@@ -30,7 +30,12 @@ const USerSchema = new mongoose.Schema(
         otpExpiry: { type: Date, default: null },
         otpAttempts: { type: Number, default: 0 },
 
-        // Password Reset
+        // Password Reset (Secure OTP)
+        resetOTP: { type: String, default: null }, // Hashed 6-digit OTP
+        resetOTPExpiry: { type: Date, default: null },
+        resetOTPAttempts: { type: Number, default: 0 },
+
+        // Old Token-based Reset (Optional: keeping for transition or removing)
         resetPasswordToken: { type: String, default: null },
         resetPasswordExpiry: { type: Date, default: null },
 

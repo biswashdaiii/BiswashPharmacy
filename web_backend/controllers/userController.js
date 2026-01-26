@@ -4,7 +4,7 @@ import crypto from "crypto";
 import userModel from "../models/userModel.js";
 import { validatePassword } from "../utils/passwordValidator.js";
 import { logAuth, logError, logSecurity, logCriticalSecurity } from "../config/logger.js";
-import { generateOTP, sendOTPEmail } from "../utils/emailService.js";
+import { generateOTP, sendOTPEmail, sendPasswordResetOTP } from "../utils/emailService.js";
 import { encrypt, decrypt } from "../utils/encryption.js";
 
 
@@ -660,62 +660,104 @@ const refreshAccessToken = async (req, res) => {
   }
 };
 
-// Forgot Password
+// Secure OTP-based Forgot Password
 const forgotPassword = async (req, res) => {
   const { email } = req.body;
   try {
     const user = await userModel.findOne({ email });
+
+    // Always return success to prevent account enumeration
+    const genericResponse = { success: true, message: "If an account exists with this email, a reset code has been sent." };
+
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      console.log('Forgot Password: User not found for email:', email);
+      return res.status(200).json(genericResponse);
     }
 
-    // Generate reset token
-    const resetToken = crypto.randomBytes(32).toString('hex');
+    console.log('Forgot Password: User found, generating OTP for:', email);
+    // Generate secure 6-digit OTP
+    const otp = generateOTP();
+    const hashedOTP = await bcrypt.hash(otp, 10);
 
-    // Hash token for database storage
-    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
-
-    // Set token and expiry (1 hour)
-    user.resetPasswordToken = resetTokenHash;
-    user.resetPasswordExpiry = Date.now() + 3600000; // 1 hour
+    // Set OTP and 10-minute expiry
+    user.resetOTP = hashedOTP;
+    user.resetOTPExpiry = Date.now() + 10 * 60 * 1000;
+    user.resetOTPAttempts = 0;
 
     await user.save();
+    console.log('Forgot Password: Saved hashed OTP to DB');
 
-    // Send email with PLAIN token
-    const emailSent = await sendPasswordResetEmail(user.email, resetToken, user.name);
+    // Send email with PLAIN OTP
+    console.log('Forgot Password: Attempting to send email...');
+    const emailSent = await sendPasswordResetOTP(user.email, otp, user.name);
 
     if (!emailSent) {
-      user.resetPasswordToken = undefined;
-      user.resetPasswordExpiry = undefined;
-      await user.save();
-      return res.status(500).json({ success: false, message: "Failed to send reset email" });
+      console.error('Forgot Password: FAILED to send email to:', email);
+      logError(new Error('Failed to send reset OTP'), { userId: user._id, email });
+    } else {
+      console.log('Forgot Password: Email sent successfully');
     }
 
-    logAuth('PASSWORD_RESET_REQUESTED', { userId: user._id, email: user.email, ip: req.ip });
-    res.json({ success: true, message: "Password reset link sent to email" });
+    logAuth('PASSWORD_RESET_OTP_REQUESTED', { userId: user._id, email: user.email, ip: req.ip });
+    res.json(genericResponse);
   } catch (error) {
-    logError(error, { email });
+    logError(error, { email, ip: req.ip });
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// Reset Password
-const resetPassword = async (req, res) => {
-  const { token, newPassword } = req.body;
+// Verify OTP for Password Reset
+const verifyResetOTP = async (req, res) => {
+  const { email, otp } = req.body;
   try {
-    // Hash provided token to compare with DB
-    const resetTokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const user = await userModel.findOne({ email });
 
-    const user = await userModel.findOne({
-      resetPasswordToken: resetTokenHash,
-      resetPasswordExpiry: { $gt: Date.now() }
-    });
-
-    if (!user) {
-      return res.status(400).json({ success: false, message: "Invalid or expired password reset token" });
+    if (!user || !user.resetOTP || !user.resetOTPExpiry || new Date() > user.resetOTPExpiry) {
+      return res.status(400).json({ success: false, message: "Invalid or expired reset code" });
     }
 
-    // Validate new password
+    // Check attempts
+    if (user.resetOTPAttempts >= 5) {
+      user.resetOTP = null; // Invalidate OTP after too many attempts
+      await user.save();
+      logSecurity('RESET_OTP_MAX_ATTEMPTS', { email, ip: req.ip });
+      return res.status(429).json({ success: false, message: "Too many attempts. Please request a new code." });
+    }
+
+    // Verify hashed OTP
+    const isMatch = await bcrypt.compare(otp, user.resetOTP);
+    if (!isMatch) {
+      user.resetOTPAttempts += 1;
+      await user.save();
+      logSecurity('RESET_OTP_INVALID', { email, ip: req.ip });
+      return res.status(400).json({ success: false, message: "Invalid reset code" });
+    }
+
+    // Success - OTP is valid
+    res.json({ success: true, message: "Code verified successfully" });
+  } catch (error) {
+    logError(error, { email, ip: req.ip });
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// Secure Password Reset
+const resetPassword = async (req, res) => {
+  const { email, otp, newPassword } = req.body;
+  try {
+    const user = await userModel.findOne({ email });
+
+    if (!user || !user.resetOTP || !user.resetOTPExpiry || new Date() > user.resetOTPExpiry) {
+      return res.status(400).json({ success: false, message: "Invalid or expired session" });
+    }
+
+    // Double check OTP validity
+    const isOTPValid = await bcrypt.compare(otp, user.resetOTP);
+    if (!isOTPValid) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    // Validate password strength
     const passwordValidation = validatePassword(newPassword);
     if (!passwordValidation.isValid) {
       return res.status(400).json({
@@ -736,22 +778,23 @@ const resetPassword = async (req, res) => {
       }
     }
 
-    // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-    // Update user
-    user.password = hashedPassword;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpiry = undefined;
+    // Update user and invalidate all sessions
+    user.password = hashedNewPassword;
+    user.resetOTP = null;
+    user.resetOTPExpiry = null;
+    user.resetOTPAttempts = 0;
+    user.refreshTokens = []; // Log out all active sessions
     user.passwordLastChangedAt = Date.now();
-    user.previousPasswords = [hashedPassword, ...(user.previousPasswords || [])].slice(0, 5);
+    user.previousPasswords = [hashedNewPassword, ...(user.previousPasswords || [])].slice(0, 5);
 
     await user.save();
 
     logAuth('PASSWORD_RESET_SUCCESS', { userId: user._id, email: user.email, ip: req.ip });
-    res.json({ success: true, message: "Password reset successfully. You can now login." });
+    res.json({ success: true, message: "Password reset successfully. Please login with your new password." });
   } catch (error) {
-    logError(error, { ip: req.ip });
+    logError(error, { email, ip: req.ip });
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -763,6 +806,7 @@ export {
   getProfile,
   updateUserProfile,
   verifyOTP,
+  verifyResetOTP,
   toggle2FA,
   resendOTP,
   changePassword,
