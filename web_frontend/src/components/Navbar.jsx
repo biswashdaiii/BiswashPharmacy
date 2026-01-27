@@ -28,13 +28,9 @@ const Navbar = () => {
           <li className="py-1 hover:text-primary transition-colors">Home</li>
           <hr className="border-none outline-none h-1 bg-primary w-full m-auto hidden" />
         </NavLink>
-        <NavLink to="/collection">
-          <li className="py-1 hover:text-primary transition-colors">Collection</li>
-          <hr className="border-none outline-none h-1 bg-primary w-full m-auto hidden" />
-        </NavLink>
-        <NavLink to="/contact">
-          <li className="py-1 hover:text-primary transition-colors">Contact</li>
-          <hr className="border-none outline-none h-1 bg-primary w-full m-auto hidden" />
+        <NavLink to='/collection'>
+          <li className='py-1 uppercase text-zinc-800 font-bold'>All Items</li>
+          <hr className='border-none h-[1.5px] bg-primary w-3/5 m-auto hidden' />
         </NavLink>
         <NavLink to="/about">
           <li className="py-1 hover:text-primary transition-colors">About</li>

@@ -13,7 +13,7 @@ const SecurityLogs = () => {
         try {
             setLoading(true);
             const response = await axios.get(`${backendUrl}/api/admin/security-logs`, {
-                headers: { token: aToken }
+                headers: { Authorization: `Bearer ${aToken}` }
             });
 
             if (response.data.success) {
@@ -50,7 +50,7 @@ const SecurityLogs = () => {
     };
 
     return (
-        <div className="m-5 w-full">
+        <div className="w-full">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-semibold">Security Audit Logs</h1>
                 <button

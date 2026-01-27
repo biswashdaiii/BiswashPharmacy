@@ -5,34 +5,37 @@ import { logSecurity } from '../config/logger.js';
 // Middleware to check if user is admin
 export const authAdmin = async (req, res, next) => {
   try {
-    let token = req.cookies.token || req.headers.token || req.headers.atoken || req.headers.authorization?.replace('Bearer ', '');
+    let token = req.headers.authorization?.split(' ')[1] || req.headers.atoken || req.headers.token || req.cookies.token;
 
     if (!token) {
       logSecurity('ADMIN_AUTH_FAILURE_NO_TOKEN', { path: req.path, ip: req.ip });
       return res.status(401).json({
         success: false,
-        message: 'Not authorized. Please login as admin.'
+        message: 'Authentication required. Please login as admin.'
       });
     }
 
     // Verify token
     const decoded = jwt.verify(token, process.env.SECRET);
 
-    // If token has email instead of id (env-based admin)
-    if (decoded.email === process.env.ADMIN_EMAIL && decoded.role === 'admin') {
+    // Get user from database (Zero Trust)
+    let user;
+    if (decoded.id) {
+      user = await User.findById(decoded.id).select('-password');
+    } else if (decoded.email) {
+      user = await User.findOne({ email: decoded.email }).select('-password');
+    }
+
+    // Fallback for env-based admin (if not in DB yet)
+    if (!user && decoded.email === process.env.ADMIN_EMAIL && decoded.role === 'admin') {
       req.userId = 'admin-env';
-      req.user = { email: decoded.email, role: 'admin' };
+      req.user = { email: decoded.email, role: 'admin', isActive: true };
       return next();
     }
 
-    // Get user from database
-    const user = await User.findById(decoded.id).select('-password');
-
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not found'
-      });
+      logSecurity('ADMIN_AUTH_FAILURE_USER_NOT_FOUND', { path: req.path, ip: req.ip });
+      return res.status(401).json({ success: false, message: 'Admin account not found' });
     }
 
     // Check if user is admin
@@ -48,10 +51,10 @@ export const authAdmin = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
-    console.error('Admin auth error:', error);
+    logSecurity('ADMIN_AUTH_FAILURE_INVALID_TOKEN', { error: error.message, path: req.path, ip: req.ip });
     return res.status(401).json({
       success: false,
-      message: 'Invalid or expired token'
+      message: 'Session expired or invalid token'
     });
   }
 };

@@ -13,7 +13,7 @@ const Sidebar = () => {
         <ul className="text-[#515151] mt-5">
           <NavLink
             className={({ isActive }) =>
-              `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? "bg-[#F2F3FF] border-r-4 border-primary" : ""
+              `flex items-center gap-3 py-3.5 px-3 md:px-9 cursor-pointer w-full ${isActive ? "bg-[#F2F3FF] border-r-4 border-primary" : ""
               }`
             }
             to={"/add-items"}
@@ -24,7 +24,7 @@ const Sidebar = () => {
 
           <NavLink
             className={({ isActive }) =>
-              `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? "bg-[#F2F3FF] border-r-4 border-primary" : ""
+              `flex items-center gap-3 py-3.5 px-3 md:px-9 cursor-pointer w-full ${isActive ? "bg-[#F2F3FF] border-r-4 border-primary" : ""
               }`
             }
             to={"/list-items"}
@@ -35,7 +35,7 @@ const Sidebar = () => {
 
           <NavLink
             className={({ isActive }) =>
-              `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? "bg-[#F2F3FF] border-r-4 border-primary" : ""
+              `flex items-center gap-3 py-3.5 px-3 md:px-9 cursor-pointer w-full ${isActive ? "bg-[#F2F3FF] border-r-4 border-primary" : ""
               }`
             }
             to={"/orders"}
@@ -46,13 +46,13 @@ const Sidebar = () => {
 
           <NavLink
             className={({ isActive }) =>
-              `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? "bg-[#F2F3FF] border-r-4 border-primary" : ""
+              `flex items-center gap-3 py-3.5 px-3 md:px-9 cursor-pointer w-full ${isActive ? "bg-[#F2F3FF] border-r-4 border-primary" : ""
               }`
             }
             to={"/security-logs"}
           >
             <div className="w-6 h-6 flex items-center justify-center bg-zinc-100 rounded">🔐</div>
-            <p>Security Audit</p>
+            <p>Security Logs</p>
           </NavLink>
         </ul>
       )}

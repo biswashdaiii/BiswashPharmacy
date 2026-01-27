@@ -670,11 +670,9 @@ const forgotPassword = async (req, res) => {
     const genericResponse = { success: true, message: "If an account exists with this email, a reset code has been sent." };
 
     if (!user) {
-      console.log('Forgot Password: User not found for email:', email);
       return res.status(200).json(genericResponse);
     }
 
-    console.log('Forgot Password: User found, generating OTP for:', email);
     // Generate secure 6-digit OTP
     const otp = generateOTP();
     const hashedOTP = await bcrypt.hash(otp, 10);
@@ -685,17 +683,12 @@ const forgotPassword = async (req, res) => {
     user.resetOTPAttempts = 0;
 
     await user.save();
-    console.log('Forgot Password: Saved hashed OTP to DB');
 
     // Send email with PLAIN OTP
-    console.log('Forgot Password: Attempting to send email...');
     const emailSent = await sendPasswordResetOTP(user.email, otp, user.name);
 
     if (!emailSent) {
-      console.error('Forgot Password: FAILED to send email to:', email);
       logError(new Error('Failed to send reset OTP'), { userId: user._id, email });
-    } else {
-      console.log('Forgot Password: Email sent successfully');
     }
 
     logAuth('PASSWORD_RESET_OTP_REQUESTED', { userId: user._id, email: user.email, ip: req.ip });

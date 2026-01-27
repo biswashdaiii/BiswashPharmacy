@@ -26,16 +26,18 @@ const App = () => {
       <ToastContainer />
       <Navbar />
       <div className="flex items-start">
-        <Sidebar />
-        <Routes>
-          {/* Admin Routes */}
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/admin-dashboard" element={<Dashboard />} />
-          <Route path="/add-items" element={<AddItems />} />
-          <Route path="/list-items" element={<ListItems />} />
-          <Route path="/orders" element={<Orders />} />
-          <Route path="/security-logs" element={<SecurityLogs />} />
-        </Routes>
+        <Sidebar aria-label="Admin sidebar" />
+        <main className='flex-1 md:mx-5 my-5 text-gray-600 overflow-y-auto px-4 md:px-0'>
+          <Routes>
+            {/* Admin Routes */}
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/admin-dashboard" element={<Dashboard />} />
+            <Route path="/add-items" element={<AddItems />} />
+            <Route path="/list-items" element={<ListItems />} />
+            <Route path="/orders" element={<Orders />} />
+            <Route path="/security-logs" element={<SecurityLogs />} />
+          </Routes>
+        </main>
       </div>
     </div>
   ) : (
