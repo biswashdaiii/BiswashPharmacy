@@ -24,6 +24,13 @@ const MyProfile = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showOldPassword, setShowOldPassword] = useState(false);
 
+  // TOTP 2FA states
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState("");
+  const [totpSecret, setTotpSecret] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [tempSecret, setTempSecret] = useState("");
+
   const nepaliCities = [
     "Kathmandu", "Pokhara", "Lalitpur", "Bharatpur", "Biratnagar",
     "Birgunj", "Janakpur", "Ghorahi", "Hetauda", "Dhangadhi",
@@ -117,19 +124,61 @@ const MyProfile = () => {
   const handleToggle2FA = async () => {
     try {
       const newState = !twoFactorEnabled;
+
+      if (newState) {
+        // Enabling 2FA - show QR code setup
+        const response = await axios.post(
+          `${backendUrl}/api/user/setup-2fa`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (response.data.success) {
+          setQrCodeUrl(response.data.qrCode);
+          setTotpSecret(response.data.secret);
+          setTempSecret(response.data.tempSecret);
+          setShowQRModal(true);
+        }
+      } else {
+        // Disabling 2FA
+        const response = await axios.post(
+          `${backendUrl}/api/user/disable-2fa`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (response.data.success) {
+          setTwoFactorEnabled(false);
+          setUserData({ ...userData, twoFactorEnabled: false });
+          toast.success(response.data.message);
+        }
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to toggle 2FA");
+    }
+  };
+
+  const handleVerify2FASetup = async (e) => {
+    e.preventDefault();
+    try {
       const response = await axios.post(
-        `${backendUrl}/api/user/toggle-2fa`,
-        { enable: newState },
+        `${backendUrl}/api/user/verify-2fa-setup`,
+        { token: verificationCode, secret: tempSecret },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (response.data.success) {
-        setTwoFactorEnabled(newState);
-        setUserData({ ...userData, twoFactorEnabled: newState });
+        setTwoFactorEnabled(true);
+        setUserData({ ...userData, twoFactorEnabled: true });
+        setShowQRModal(false);
+        setVerificationCode("");
+        setQrCodeUrl("");
+        setTotpSecret("");
+        setTempSecret("");
         toast.success(response.data.message);
       }
     } catch (error) {
-      toast.error("Failed to toggle 2FA");
+      toast.error(error.response?.data?.message || "Invalid verification code");
     }
   };
 
@@ -388,6 +437,78 @@ const MyProfile = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* QR Code Modal for 2FA Setup */}
+      {showQRModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-xl font-semibold mb-4 text-center">Enable Two-Factor Authentication</h3>
+            <p className="text-sm text-gray-600 mb-4 text-center">
+              Scan this QR code with Google Authenticator or any TOTP app
+            </p>
+
+            {/* QR Code */}
+            <div className="flex justify-center mb-4">
+              <img src={qrCodeUrl} alt="2FA QR Code" className="w-64 h-64 border-2 border-gray-200 rounded" />
+            </div>
+
+            {/* Manual Entry Key */}
+            <div className="mb-4 p-3 bg-gray-50 rounded">
+              <p className="text-xs text-gray-500 mb-1">Manual Entry Key:</p>
+              <p className="text-sm font-mono break-all text-center">{totpSecret}</p>
+            </div>
+
+            {/* Verification Form */}
+            <form onSubmit={handleVerify2FASetup} className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-600 mb-2">Enter the 6-digit code from your app to verify:</p>
+                <input
+                  type="text"
+                  maxLength="6"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
+                  className="w-full p-3 border border-gray-300 rounded text-center text-2xl tracking-widest focus:ring-2 focus:ring-primary outline-none"
+                  placeholder="000000"
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowQRModal(false);
+                    setVerificationCode("");
+                    setQrCodeUrl("");
+                    setTotpSecret("");
+                    setTempSecret("");
+                  }}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-primary text-white rounded hover:bg-opacity-90"
+                >
+                  Verify & Enable
+                </button>
+              </div>
+            </form>
+
+            {/* Instructions */}
+            <div className="mt-4 p-3 bg-blue-50 rounded text-xs text-gray-600">
+              <p className="font-semibold mb-1">📱 Setup Instructions:</p>
+              <ol className="list-decimal list-inside space-y-1">
+                <li>Download Google Authenticator or any TOTP app</li>
+                <li>Scan the QR code above</li>
+                <li>Enter the 6-digit code shown in the app</li>
+                <li>Keep your phone safe - you'll need it to login</li>
+              </ol>
+            </div>
           </div>
         </div>
       )}

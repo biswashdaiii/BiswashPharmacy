@@ -1,6 +1,8 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import speakeasy from "speakeasy";
+import QRCode from "qrcode";
 import userModel from "../models/userModel.js";
 import { validatePassword } from "../utils/passwordValidator.js";
 import { logAuth, logError, logSecurity, logCriticalSecurity } from "../config/logger.js";
@@ -503,6 +505,205 @@ const toggle2FA = async (req, res) => {
   }
 };
 
+// Setup 2FA - Generate TOTP secret and QR code
+const setup2FA = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const user = await userModel.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // Generate secret
+    const secret = speakeasy.generateSecret({
+      name: `BiswashPharmacy (${user.email})`,
+      issuer: 'BiswashPharmacy'
+    });
+
+    // Generate QR code
+    const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url);
+
+    logAuth('2FA_SETUP_INITIATED', { userId, email: user.email, ip: req.ip });
+
+    res.json({
+      success: true,
+      qrCode: qrCodeUrl,
+      secret: secret.base32, // For manual entry
+      tempSecret: secret.base32 // Store temporarily for verification
+    });
+  } catch (error) {
+    logError(error, { userId: req.userId });
+    res.status(500).json({ success: false, message: "Failed to generate QR code" });
+  }
+};
+
+// Verify 2FA Setup - Verify initial TOTP code and save secret
+const verify2FASetup = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { token, secret } = req.body;
+
+    if (!token || !secret) {
+      return res.status(400).json({ success: false, message: "Token and secret are required" });
+    }
+
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // Verify the token
+    const verified = speakeasy.totp.verify({
+      secret: secret,
+      encoding: 'base32',
+      token: token,
+      window: 2 // Allow 2 time steps before/after for clock skew
+    });
+
+    if (!verified) {
+      logSecurity('2FA_SETUP_INVALID_TOKEN', { userId, ip: req.ip });
+      return res.status(400).json({ success: false, message: "Invalid verification code" });
+    }
+
+    // Encrypt and save the secret
+    const encryptedSecret = encrypt(secret);
+    await userModel.findByIdAndUpdate(userId, {
+      twoFactorSecret: encryptedSecret,
+      twoFactorEnabled: true
+    });
+
+    logAuth('2FA_ENABLED', { userId, email: user.email, ip: req.ip });
+
+    res.json({
+      success: true,
+      message: "Two-factor authentication enabled successfully",
+      twoFactorEnabled: true
+    });
+  } catch (error) {
+    logError(error, { userId: req.userId });
+    res.status(500).json({ success: false, message: "Failed to verify setup" });
+  }
+};
+
+// Verify TOTP for login
+const verifyTOTP = async (req, res) => {
+  const JWT_SECRET = process.env.SECRET?.trim();
+  const { userId, token } = req.body;
+
+  try {
+    const user = await userModel.findById(userId);
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: "User not found" });
+    }
+
+    if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+      return res.status(400).json({ success: false, message: "2FA not enabled for this account" });
+    }
+
+    // Decrypt the secret
+    const secret = decrypt(user.twoFactorSecret);
+
+    // Verify the TOTP token
+    const verified = speakeasy.totp.verify({
+      secret: secret,
+      encoding: 'base32',
+      token: token,
+      window: 2 // Allow 2 time steps before/after for clock skew
+    });
+
+    if (!verified) {
+      logSecurity('TOTP_INVALID', { userId, ip: req.ip });
+      return res.status(400).json({ success: false, message: "Invalid verification code" });
+    }
+
+    // TOTP verified - issue tokens
+    const accessToken = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ id: user._id }, process.env.REFRESH_SECRET || JWT_SECRET, { expiresIn: '7d' });
+
+    // Hash and store refresh token
+    const hashedRefreshToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    await userModel.findByIdAndUpdate(user._id, {
+      $push: { refreshTokens: hashedRefreshToken }
+    });
+
+    res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    // Check for password expiration (90 days)
+    const NINETY_DAYS_IN_MS = 90 * 24 * 60 * 60 * 1000;
+    const lastChanged = user.passwordLastChangedAt ? new Date(user.passwordLastChangedAt).getTime() : 0;
+    const passwordExpired = Date.now() - lastChanged > NINETY_DAYS_IN_MS;
+
+    logAuth('USER_LOGGED_IN_TOTP', { userId: user._id, email: user.email, ip: req.ip, passwordExpired });
+
+    // Log admin access
+    if (user.role === 'admin') {
+      logCriticalSecurity('ADMIN_ACCESS', {
+        userId: user._id,
+        email: user.email,
+        ip: req.ip
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      token: accessToken,
+      passwordExpired,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role || 'user',
+        profileImage: user.profileImage
+      },
+    });
+  } catch (error) {
+    logError(error, { userId, ip: req.ip });
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// Disable 2FA
+const disable2FA = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const user = await userModel.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    await userModel.findByIdAndUpdate(userId, {
+      twoFactorEnabled: false,
+      twoFactorSecret: null
+    });
+
+    logAuth('2FA_DISABLED', { userId, email: user.email, ip: req.ip });
+
+    res.json({
+      success: true,
+      message: "Two-factor authentication disabled",
+      twoFactorEnabled: false
+    });
+  } catch (error) {
+    logError(error, { userId: req.userId });
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 // Resend OTP
 const resendOTP = async (req, res) => {
   const { userId } = req.body;
@@ -801,6 +1002,10 @@ export {
   verifyOTP,
   verifyResetOTP,
   toggle2FA,
+  setup2FA,
+  verify2FASetup,
+  verifyTOTP,
+  disable2FA,
   resendOTP,
   changePassword,
   refreshAccessToken,

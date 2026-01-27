@@ -26,6 +26,7 @@ const USerSchema = new mongoose.Schema(
 
         // 2FA fields
         twoFactorEnabled: { type: Boolean, default: false },
+        twoFactorSecret: { type: String, default: null }, // TOTP secret for Google Authenticator
         otp: { type: String, default: null },
         otpExpiry: { type: Date, default: null },
         otpAttempts: { type: Number, default: 0 },

@@ -1,5 +1,5 @@
 import express from "express";
-import { registerUser, loginUser, getUsers, getProfile, updateUserProfile, verifyOTP, toggle2FA, resendOTP, changePassword, refreshAccessToken, forgotPassword, resetPassword, verifyResetOTP } from "../controllers/userController.js";
+import { registerUser, loginUser, getUsers, getProfile, updateUserProfile, verifyOTP, toggle2FA, setup2FA, verify2FASetup, verifyTOTP, disable2FA, resendOTP, changePassword, refreshAccessToken, forgotPassword, resetPassword, verifyResetOTP } from "../controllers/userController.js";
 import { authUser } from "../middleware/authUser.js";
 import { authAdmin } from "../middleware/authAdmin.js";
 import upload from "../middleware/multer.js";
@@ -13,10 +13,16 @@ const userRouter = express.Router();
 userRouter.post("/register", registerLimiter, verifyRecaptcha, registerUser);
 userRouter.post("/login", loginLimiter, verifyRecaptcha, loginUser);
 
-// 2FA routes
+// 2FA routes (Email OTP - legacy)
 userRouter.post("/verify-otp", loginLimiter, verifyOTP);
 userRouter.post("/resend-otp", loginLimiter, resendOTP);
 userRouter.post("/toggle-2fa", authUser, toggle2FA);
+
+// TOTP-based 2FA routes (Google Authenticator)
+userRouter.post("/setup-2fa", authUser, setup2FA);
+userRouter.post("/verify-2fa-setup", authUser, verify2FASetup);
+userRouter.post("/verify-totp", loginLimiter, verifyTOTP);
+userRouter.post("/disable-2fa", authUser, disable2FA);
 
 // Refresh token route
 userRouter.post("/refresh-token", refreshAccessToken);

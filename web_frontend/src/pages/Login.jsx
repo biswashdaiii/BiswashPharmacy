@@ -9,7 +9,9 @@ import ReCAPTCHA from "react-google-recaptcha";
 import PasswordStrengthMeter from "../components/PasswordStrengthMeter";
 
 const Login = () => {
-  const { backendUrl, setToken, navigate } = useContext(ShopContext);
+  const { backendUrl, setToken, token } = useContext(ShopContext);
+  const { authUser } = useAuthStore();
+  const navigate = useNavigate();
   const [state, setState] = useState("Sign up");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,6 +24,17 @@ const Login = () => {
   const [otp, setOtp] = useState("");
   const [userIdForOTP, setUserIdForOTP] = useState(null);
   const recaptchaRef = useRef();
+
+  // Redirect if already logged in - FIXED VERSION
+  useEffect(() => {
+    const storedToken = localStorage.getItem('token');
+    const storedAuthStorage = localStorage.getItem('auth-storage');
+
+    // Only redirect if actually logged in (has valid token AND user data)
+    if (token && storedToken && (authUser || storedAuthStorage)) {
+      navigate('/', { replace: true });
+    }
+  }, [token, authUser, navigate]);
 
   const onSubmitHandler = async (event) => {
     event.preventDefault();
@@ -77,6 +90,9 @@ const Login = () => {
         toast.success("Account created successfully! Please login.");
         setState("Login");
         setPassword("");
+        setConfirmPassword("");
+        setName("");
+        setEmail("");
         setRecaptchaToken("");
         recaptchaRef.current?.reset();
 
@@ -87,7 +103,7 @@ const Login = () => {
           return;
         }
 
-        return; // Stop here to prevent auto-login
+        return;
       }
 
       if (res.data.token && res.data.user) {
@@ -117,12 +133,11 @@ const Login = () => {
       toast.error('Google Sign-In failed. Please try again.');
       window.history.replaceState({}, document.title, '/login');
     } else if (success) {
-      // Tokens are in httpOnly cookies, just need to update state
       const fetchProfile = async () => {
         try {
           const res = await axios.get(backendUrl + '/api/user/get-profile');
           if (res.data.success) {
-            setToken('true'); // Just a flag, actual token is cookie
+            setToken('true');
             localStorage.setItem('token', 'true');
             localStorage.setItem('user', JSON.stringify(res.data.userData));
             const { setAuthUser, connectSocket } = useAuthStore.getState();
@@ -137,7 +152,6 @@ const Login = () => {
         }
       };
       fetchProfile();
-      // Use clean URL immediately to prevent multiple triggers
       const cleanUrl = window.location.origin + window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
     }
@@ -150,9 +164,9 @@ const Login = () => {
   const onVerifyOTPHandler = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post(`${backendUrl}/api/user/verify-otp`, {
+      const res = await axios.post(`${backendUrl}/api/user/verify-totp`, {
         userId: userIdForOTP,
-        otp
+        token: otp
       });
 
       if (res.data.success) {
@@ -171,12 +185,8 @@ const Login = () => {
   };
 
   const onResendOTP = async () => {
-    try {
-      await axios.post(`${backendUrl}/api/user/resend-otp`, { userId: userIdForOTP });
-      toast.success("Verification code resent!");
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to resend code");
-    }
+    // TOTP doesn't need resend - remove this function or keep for backward compatibility
+    toast.info("Please enter the current code from your authenticator app");
   };
 
   return (
@@ -187,13 +197,13 @@ const Login = () => {
         <form onSubmit={onVerifyOTPHandler} className="min-h-[100vh] flex items-center">
           <div className="flex flex-col gap-3 m-auto items-center p-8 min-w-[340px] sm:min-w-96 border rounded-xl text-zinc-600 text-sm shadow-lg">
             <p className="text-2xl font-semibold text-primary">Two-Factor Authentication</p>
-            <p className="text-center">Please enter the 6-digit verification code sent to your email.</p>
+            <p className="text-center">Enter the 6-digit code from your Google Authenticator app</p>
             <div className="w-full mt-4">
               <input
                 className="border border-zinc-300 rounded w-full p-4 text-center text-2xl tracking-[1em] focus:border-primary outline-none"
                 type="text"
                 maxLength="6"
-                onChange={(e) => setOtp(e.target.value)}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
                 value={otp}
                 placeholder="000000"
                 required
@@ -203,10 +213,7 @@ const Login = () => {
               Verify Code
             </button>
             <div className="flex flex-col items-center gap-2 mt-4">
-              <p className="text-gray-500">Didn't receive code?</p>
-              <button type="button" onClick={onResendOTP} className="text-primary hover:underline">
-                Resend Verification Code
-              </button>
+              <p className="text-gray-500 text-xs">Code refreshes every 30 seconds in your app</p>
               <button type="button" onClick={() => setShowOTP(false)} className="text-gray-400 text-xs mt-2 hover:underline">
                 Back to Login
               </button>

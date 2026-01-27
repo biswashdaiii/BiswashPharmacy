@@ -2,17 +2,30 @@ import React, { useState, useContext } from "react";
 import { assets } from "../assets/assets";
 import { NavLink, useNavigate } from "react-router-dom";
 import { ShopContext } from "../context/ShopContext";
+import { useAuthStore } from "../store/useAuthStore";
 import { ShoppingCart } from "lucide-react";
 
 const Navbar = () => {
   const navigate = useNavigate();
-  const { token, setToken, getCartCount } = useContext(ShopContext);
+  const { token, setToken, getCartCount, setUserData } = useContext(ShopContext);
+  const { disconnectSocket, setAuthUser } = useAuthStore();
 
   const [showMenu, setShowMenu] = useState(false);
 
   const logout = () => {
-    setToken(null);
+    // Clear all authentication data
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("auth-storage"); // Clear Zustand persisted data
+
+    // Reset all state
+    setToken(null);
+    setUserData(null);
+    setAuthUser(null);
+    disconnectSocket();
+
+    // Navigate to login
+    navigate('/login');
   };
 
   return (
