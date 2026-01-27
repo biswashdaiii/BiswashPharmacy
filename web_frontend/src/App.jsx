@@ -14,6 +14,7 @@ import MyProfile from "./pages/MyProfile";
 import ForgotPassword from "./pages/ForgotPassword";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+import SearchBar from "./components/SearchBar";
 
 import Success from "./components/Success";
 import Failure from "./components/Failure";
@@ -23,6 +24,7 @@ const App = () => {
   return (
     <div className="mx-4 sm:mx-[10%]">
       <Navbar />
+      <SearchBar />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/home" element={<Home />} />

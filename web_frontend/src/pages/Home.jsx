@@ -6,6 +6,8 @@ import { useAuthStore } from '../store/useAuthStore'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import axios from 'axios'
+import LatestCollection from '../components/LatestCollection'
+import OurPolicy from '../components/OurPolicy'
 
 const Home = () => {
   const { backendUrl, setToken, token } = useContext(ShopContext);
@@ -44,9 +46,10 @@ const Home = () => {
   }, [backendUrl, setToken, token]);
 
   return (
-    <div>
+    <div className='animate-fadeIn'>
       <Header />
-      {/* <LatestCollection/>  -- To be implemented */}
+      <LatestCollection />
+      <OurPolicy />
       <Banner />
     </div>
   )
