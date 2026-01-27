@@ -49,6 +49,17 @@ const Sidebar = () => {
               `flex items-center gap-3 py-3.5 px-3 md:px-9 cursor-pointer w-full ${isActive ? "bg-[#F2F3FF] border-r-4 border-primary" : ""
               }`
             }
+            to={"/user-list"}
+          >
+            <div className="w-6 h-6 flex items-center justify-center bg-zinc-100 rounded">👥</div>
+            <p>User List</p>
+          </NavLink>
+
+          <NavLink
+            className={({ isActive }) =>
+              `flex items-center gap-3 py-3.5 px-3 md:px-9 cursor-pointer w-full ${isActive ? "bg-[#F2F3FF] border-r-4 border-primary" : ""
+              }`
+            }
             to={"/security-logs"}
           >
             <div className="w-6 h-6 flex items-center justify-center bg-zinc-100 rounded">🔐</div>

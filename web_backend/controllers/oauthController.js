@@ -13,9 +13,9 @@ export const googleOAuthCallback = async (req, res) => {
             return res.redirect(`${frontendUrl}/login?error=oauth_failed`);
         }
 
-        // Generate access and refresh tokens
-        const accessToken = jwt.sign({ id: user._id }, process.env.SECRET, { expiresIn: '15m' });
-        const refreshToken = jwt.sign({ id: user._id }, process.env.REFRESH_SECRET || process.env.SECRET, { expiresIn: '7d' });
+        // Generate access and refresh tokens with role for stateless RBAC
+        const accessToken = jwt.sign({ id: user._id, role: user.role || 'user' }, process.env.SECRET, { expiresIn: '15m' });
+        const refreshToken = jwt.sign({ id: user._id, role: user.role || 'user' }, process.env.REFRESH_SECRET || process.env.SECRET, { expiresIn: '7d' });
 
         // Hash and store refresh token
         const hashedRefreshToken = crypto.createHash('sha256').update(refreshToken).digest('hex');

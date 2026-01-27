@@ -62,9 +62,9 @@ const registerUser = async (req, res) => {
       passwordLastChangedAt: Date.now()
     });
 
-    // Generate access and refresh tokens
-    const accessToken = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '15m' });
-    const refreshToken = jwt.sign({ id: user._id }, process.env.REFRESH_SECRET || JWT_SECRET, { expiresIn: '7d' });
+    // Generate access and refresh tokens with role for stateless RBAC
+    const accessToken = jwt.sign({ id: user._id, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ id: user._id, role: user.role || 'user' }, process.env.REFRESH_SECRET || JWT_SECRET, { expiresIn: '7d' });
 
     // Hash and store refresh token
     const hashedRefreshToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
@@ -204,9 +204,9 @@ const loginUser = async (req, res) => {
       });
     }
 
-    // No 2FA - issue tokens immediately
-    const accessToken = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '15m' });
-    const refreshToken = jwt.sign({ id: user._id }, process.env.REFRESH_SECRET || JWT_SECRET, { expiresIn: '7d' });
+    // No 2FA - issue tokens immediately with role for stateless RBAC
+    const accessToken = jwt.sign({ id: user._id, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ id: user._id, role: user.role || 'user' }, process.env.REFRESH_SECRET || JWT_SECRET, { expiresIn: '7d' });
 
     // Hash and store refresh token
     const hashedRefreshToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
@@ -419,11 +419,11 @@ const verifyOTP = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid verification code" });
     }
 
-    // OTP verified - clear OTP and issue tokens
+    // OTP verified - clear OTP and issue tokens with role for stateless RBAC
     await userModel.findByIdAndUpdate(userId, { otp: null, otpExpiry: null, otpAttempts: 0 });
 
-    const accessToken = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '15m' });
-    const refreshToken = jwt.sign({ id: user._id }, process.env.REFRESH_SECRET || JWT_SECRET, { expiresIn: '7d' });
+    const accessToken = jwt.sign({ id: user._id, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ id: user._id, role: user.role || 'user' }, process.env.REFRESH_SECRET || JWT_SECRET, { expiresIn: '7d' });
 
     // Hash and store refresh token
     const hashedRefreshToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
@@ -618,9 +618,9 @@ const verifyTOTP = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid verification code" });
     }
 
-    // TOTP verified - issue tokens
-    const accessToken = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '15m' });
-    const refreshToken = jwt.sign({ id: user._id }, process.env.REFRESH_SECRET || JWT_SECRET, { expiresIn: '7d' });
+    // TOTP verified - issue tokens with role for stateless RBAC
+    const accessToken = jwt.sign({ id: user._id, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ id: user._id, role: user.role || 'user' }, process.env.REFRESH_SECRET || JWT_SECRET, { expiresIn: '7d' });
 
     // Hash and store refresh token
     const hashedRefreshToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
@@ -824,9 +824,9 @@ const refreshAccessToken = async (req, res) => {
       $pull: { refreshTokens: hashedRefreshToken }
     });
 
-    // Generate new tokens
-    const newAccessToken = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '15m' });
-    const newRefreshToken = jwt.sign({ id: user._id }, REFRESH_SECRET, { expiresIn: '7d' });
+    // Generate new tokens with role for stateless RBAC
+    const newAccessToken = jwt.sign({ id: user._id, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '15m' });
+    const newRefreshToken = jwt.sign({ id: user._id, role: user.role || 'user' }, REFRESH_SECRET, { expiresIn: '7d' });
 
     // Store new refresh token
     const newHashedRefreshToken = crypto.createHash('sha256').update(newRefreshToken).digest('hex');

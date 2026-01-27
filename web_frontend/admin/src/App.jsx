@@ -17,6 +17,8 @@ import AddItems from './pages/Admin/AddItems';
 import ListItems from './pages/Admin/ListItems';
 import Orders from './pages/Admin/Orders';
 import SecurityLogs from './pages/Admin/SecurityLogs';
+import UserList from './pages/Admin/UserList';
+import UserActivity from './pages/Admin/UserActivity';
 
 const App = () => {
   const { aToken } = useContext(AdminContext);
@@ -36,6 +38,8 @@ const App = () => {
             <Route path="/list-items" element={<ListItems />} />
             <Route path="/orders" element={<Orders />} />
             <Route path="/security-logs" element={<SecurityLogs />} />
+            <Route path="/user-list" element={<UserList />} />
+            <Route path="/user-activity/:userId" element={<UserActivity />} />
           </Routes>
         </main>
       </div>
