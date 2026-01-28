@@ -15,10 +15,10 @@ export const authAdmin = async (req, res, next) => {
       });
     }
 
-    // Verify token
+
     const decoded = jwt.verify(token, process.env.SECRET);
 
-    // Get user from database (Zero-Trust Verification)
+
     const user = await User.findById(decoded.id).select('-password');
 
     if (!user) {
@@ -32,7 +32,7 @@ export const authAdmin = async (req, res, next) => {
       return res.status(403).json({ success: false, message: "Account has been deactivated" });
     }
 
-    // Role check: Is user still an admin?
+
     if (user.role !== 'admin') {
       logSecurity('ADMIN_ACCESS_DENIED', { userId: user._id, email: user.email, path: req.path, ip: req.ip });
       return res.status(403).json({
@@ -53,7 +53,7 @@ export const authAdmin = async (req, res, next) => {
   }
 };
 
-// Middleware to check if user has specific role
+
 export const checkRole = (...roles) => {
   return async (req, res, next) => {
     try {
