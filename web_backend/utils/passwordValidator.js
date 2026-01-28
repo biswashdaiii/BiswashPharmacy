@@ -45,7 +45,7 @@ export const validatePassword = (password) => {
         errors.push('Password must contain at least one special character (!@#$%^&*...)');
     }
 
-    // Check for common passwords
+    // Check for common passwords to prevent common password
     if (commonPasswords.includes(password.toLowerCase())) {
         errors.push('This password is too common. Please choose a stronger password');
     }
