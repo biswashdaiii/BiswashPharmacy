@@ -43,10 +43,7 @@ export const initiateEsewaPayment = async (req, res) => {
         const newOrder = new orderModel(orderData);
         await newOrder.save();
 
-        // Prepare message for signature
-        // Format: total_amount,transaction_uuid,product_code
-        // Ensure total_amount is a string and potentially has no decimals if not needed, 
-        // but eSewa v2 often expects exact match.
+
         const total_amount = amount.toString();
         const product_code = process.env.ESEWA_PRODUCT_CODE || "EPAYTEST";
         const message = `total_amount=${total_amount},transaction_uuid=${transaction_uuid},product_code=${product_code}`;
