@@ -243,7 +243,7 @@ const ShopContextProvider = (props) => {
 
                 document.body.appendChild(form);
                 form.submit();
-                setCartItems({}); // Clear cart on successful initiation (redirecting)
+                setCartItems({});
             } else {
                 toast.error(response.data.message);
             }
