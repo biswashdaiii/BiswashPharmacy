@@ -14,7 +14,7 @@ const AppContextProvider = (props) => {
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
-  // Sync user & token with Zustand store and connect socket only after user._id is ready
+  // Sync user & token with Zustand store 
   useEffect(() => {
     if (token && userData) {
       localStorage.setItem("token", token);
