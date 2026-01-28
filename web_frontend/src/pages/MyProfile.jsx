@@ -455,7 +455,7 @@ const MyProfile = () => {
               <img src={qrCodeUrl} alt="2FA QR Code" className="w-64 h-64 border-2 border-gray-200 rounded" />
             </div>
 
-            {/* Manual Entry Key */}
+
             <div className="mb-4 p-3 bg-gray-50 rounded">
               <p className="text-xs text-gray-500 mb-1">Manual Entry Key:</p>
               <p className="text-sm font-mono break-all text-center">{totpSecret}</p>
