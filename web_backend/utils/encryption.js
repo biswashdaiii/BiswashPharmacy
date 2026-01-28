@@ -79,7 +79,7 @@ export function decrypt(data) {
 }
 
 /**
- * Encrypts an object's specified fields
+ * Encrypts an object's specified fields encrypting the data 
  * @param {Object} obj - Object to encrypt
  * @param {Array<string>} fields - Field names to encrypt
  * @returns {Object} - Object with encrypted fields
