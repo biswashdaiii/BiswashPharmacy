@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// Verify reCAPTCHA token
+
 export const verifyRecaptcha = async (req, res, next) => {
     const { recaptchaToken } = req.body;
 
@@ -27,7 +27,7 @@ export const verifyRecaptcha = async (req, res, next) => {
         );
 
         if (response.data.success) {
-            // reCAPTCHA verification successful, proceed to next middleware
+
             next();
         } else {
             return res.status(400).json({
