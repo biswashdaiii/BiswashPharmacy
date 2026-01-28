@@ -11,5 +11,5 @@ const Title = ({ text1, text2 }) => {
         </div>
     )
 }
-
+//done 
 export default Title
