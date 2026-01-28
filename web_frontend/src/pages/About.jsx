@@ -39,7 +39,7 @@ const AboutUs = () => {
         </div>
       </section>
 
-      {/* Why Choose Us Section */}
+
       <section className="max-w-6xl mx-auto mt-20">
         <h2 className="text-2xl font-semibold mb-8 text-center">WHY <span className="text-primary">CHOOSE US</span></h2>
 
