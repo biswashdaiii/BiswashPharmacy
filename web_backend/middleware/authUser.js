@@ -7,7 +7,7 @@ const JWT_SECRET = process.env.SECRET?.trim();
 
 export const authUser = async (req, res, next) => {
   try {
-    // Check for token in cookies (HttpOnly) or Authorization header
+
     let token = req.cookies.accessToken; // Changed from 'token' to 'accessToken'
 
     if (!token && req.headers.authorization) {
@@ -38,7 +38,6 @@ export const authUser = async (req, res, next) => {
       return res.status(403).json({ success: false, message: "Account has been deactivated" });
     }
 
-    // Optional: Check for password expiration (90 days)
     const NINETY_DAYS_IN_MS = 90 * 24 * 60 * 60 * 1000;
     const lastChanged = user.passwordLastChangedAt ? new Date(user.passwordLastChangedAt).getTime() : 0;
     if (Date.now() - lastChanged > NINETY_DAYS_IN_MS) {
