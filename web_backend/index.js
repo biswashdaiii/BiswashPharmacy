@@ -48,7 +48,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      connectSrc: ["'self'", "https://localhost:*", "https://192.168.226.1:*", "https://192.168.1.98:*"],
+      connectSrc: ["'self'", "https://localhost:*", "https://192.168.159.1:*", "https://192.168.226.1:*", "https://192.168.1.98:*"],
       frameSrc: ["https://www.google.com"],
     },
   },
@@ -92,7 +92,9 @@ app.use((req, res, next) => {
 app.use(cors({
   origin: [
     "https://localhost:5173",
-    "https://localhost:5174"
+    "https://localhost:5174",
+    "https://192.168.159.1:5173",  // ← ADD THIS LINE
+    "https://192.168.159.1:5174"
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
