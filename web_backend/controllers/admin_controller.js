@@ -93,7 +93,7 @@ export const getSecurityLogs = async (req, res) => {
   }
 }
 
-// Api to get specific user logs
+
 export const getUserActivity = async (req, res) => {
   try {
     const { userId } = req.params;

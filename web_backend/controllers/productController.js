@@ -45,7 +45,7 @@ const addProduct = async (req, res) => {
     }
 }
 
-// function for list product
+// function for list product done
 const listProducts = async (req, res) => {
     try {
         const products = await productModel.find({});
@@ -56,7 +56,7 @@ const listProducts = async (req, res) => {
     }
 }
 
-// function for removing product
+// function for removing product done
 const removeProduct = async (req, res) => {
     try {
         const { id } = req.body;
@@ -75,7 +75,7 @@ const removeProduct = async (req, res) => {
     }
 }
 
-// function for single product info
+// function for single product info done
 const singleProduct = async (req, res) => {
     try {
         const { productId } = req.body
