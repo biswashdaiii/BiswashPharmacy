@@ -97,7 +97,7 @@ export function encryptFields(obj, fields) {
 }
 
 /**
- * Decrypts an object's specified fields
+ * Decrypts an object's specified fields decrypting the encrypted data
  * @param {Object} obj - Object to decrypt
  * @param {Array<string>} fields - Field names to decrypt
  * @returns {Object} - Object with decrypted fields
