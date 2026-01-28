@@ -93,7 +93,7 @@ app.use(cors({
   origin: [
     "https://localhost:5173",
     "https://localhost:5174",
-    "https://192.168.159.1:5173",  // ← ADD THIS LINE
+    "https://192.168.159.1:5173",
     "https://192.168.159.1:5174"
   ],
   credentials: true,
