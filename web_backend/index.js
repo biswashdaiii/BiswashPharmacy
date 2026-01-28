@@ -118,7 +118,7 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// ======== STATIC FILES ========
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ======== RATE LIMITING ========
