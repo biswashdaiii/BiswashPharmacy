@@ -861,7 +861,7 @@ const refreshAccessToken = async (req, res) => {
   }
 };
 
-// Secure OTP-based Forgot Password
+// Secure OTP-based Forgot Password done
 const forgotPassword = async (req, res) => {
   const { email } = req.body;
   try {
@@ -874,7 +874,7 @@ const forgotPassword = async (req, res) => {
       return res.status(200).json(genericResponse);
     }
 
-    // Generate secure 6-digit OTP
+    // Generate secure 6-digit OTP 
     const otp = generateOTP();
     const hashedOTP = await bcrypt.hash(otp, 10);
 
@@ -912,7 +912,7 @@ const verifyResetOTP = async (req, res) => {
 
     // Check attempts
     if (user.resetOTPAttempts >= 5) {
-      user.resetOTP = null; // Invalidate OTP after too many attempts
+      user.resetOTP = null; // Invalidate OTP after too many attempts 
       await user.save();
       logSecurity('RESET_OTP_MAX_ATTEMPTS', { email, ip: req.ip });
       return res.status(429).json({ success: false, message: "Too many attempts. Please request a new code." });
@@ -979,7 +979,7 @@ const resetPassword = async (req, res) => {
     user.resetOTP = null;
     user.resetOTPExpiry = null;
     user.resetOTPAttempts = 0;
-    user.refreshTokens = []; // Log out all active sessions
+    user.refreshTokens = []; // Log out all active token from the db
     user.passwordLastChangedAt = Date.now();
     user.previousPasswords = [hashedNewPassword, ...(user.previousPasswords || [])].slice(0, 5);
 
