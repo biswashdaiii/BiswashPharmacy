@@ -34,7 +34,7 @@ export const registerLimiter = rateLimit({
 // General API rate limiter
 export const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit each IP to 100 requests per windowMs
+    max: 100,
     message: {
         success: false,
         message: 'Too many requests from this IP, please try again later'
@@ -46,7 +46,7 @@ export const apiLimiter = rateLimit({
 // Strict limiter for password reset
 export const passwordResetLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 3, // Limit each IP to 3 password reset requests per 15 minutes
+    max: 3, //
     message: {
         success: false,
         message: 'Too many password reset attempts, please try again after 15 minutes'
