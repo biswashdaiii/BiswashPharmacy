@@ -30,7 +30,7 @@ export const validatePassword = (password) => {
         errors.push('Password must contain at least one uppercase letter');
     }
 
-    // Check for lowercase letter
+    // Check for lowercase letter 
     if (!/[a-z]/.test(password)) {
         errors.push('Password must contain at least one lowercase letter');
     }
@@ -50,7 +50,7 @@ export const validatePassword = (password) => {
         errors.push('This password is too common. Please choose a stronger password');
     }
 
-    // Check for sequential characters
+    // Check for sequential characters to prevent password like abc, 123
     if (/(?:abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz|012|123|234|345|456|567|678|789)/i.test(password)) {
         errors.push('Password should not contain sequential characters');
     }
