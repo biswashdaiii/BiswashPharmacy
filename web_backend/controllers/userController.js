@@ -961,7 +961,7 @@ const resetPassword = async (req, res) => {
       });
     }
 
-    // Check password history
+    // Check password history form the db and check if the new password is same as the previous password
     for (const historicHash of user.previousPasswords || []) {
       const isReused = await bcrypt.compare(newPassword, historicHash);
       if (isReused) {
