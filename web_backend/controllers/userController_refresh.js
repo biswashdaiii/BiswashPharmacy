@@ -18,7 +18,7 @@ const refreshAccessToken = async (req, res) => {
             return res.status(401).json({ success: false, message: "Invalid or expired refresh token" });
         }
 
-        // Check if refresh token exists in database
+        // Check if refresh token exists in database or not donee
         const hashedRefreshToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
         const user = await userModel.findById(decoded.id);
 
