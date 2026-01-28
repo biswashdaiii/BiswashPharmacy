@@ -22,7 +22,7 @@ const Footer = () => {
             <li className="hover:text-primary cursor-pointer transition-colors">Privacy Policy</li>
           </ul>
         </div>
-        {/* ====right==== */}
+
         <div className="animate-fadeIn" style={{ animationDelay: '200ms' }}>
           <p className='text-lg font-black text-gray-800 mb-6 uppercase tracking-wider'>Get In Touch</p>
           <ul className='flex flex-col gap-3 text-gray-500 font-medium'>
