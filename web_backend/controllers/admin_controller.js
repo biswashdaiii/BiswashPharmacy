@@ -14,21 +14,21 @@ export const loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body
 
-    // 1. Check Database Admins
+    // 1. Check Database Admins done
     const user = await User.findOne({ email, role: 'admin' });
     if (!user) {
       logSecurity('ADMIN_LOGIN_FAILURE_NOT_FOUND', { email, ip: req.ip });
       return res.json({ success: false, message: "Invalid credentials for admin" });
     }
 
-    // 2. Verify Password
+    // 2. Verify Password done 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       logSecurity('ADMIN_LOGIN_FAILURE_PWD', { email, userId: user._id, ip: req.ip });
       return res.json({ success: false, message: "Invalid credentials for admin" });
     }
 
-    // 3. Check if account is active
+    // 3. Check if account is active done
     if (!user.isActive) {
       logSecurity('ADMIN_LOGIN_FAILURE_INACTIVE', { email, userId: user._id, ip: req.ip });
       return res.json({ success: false, message: "Account has been deactivated" });
