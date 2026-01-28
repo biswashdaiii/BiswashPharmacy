@@ -20,7 +20,7 @@ export const validatePassword = (password) => {
         errors.push('Password must be at least 8 characters long');
     }
 
-    // Check maximum length (prevent DoS)
+    // Check maximum length (prevent DoS attack)
     if (password && password.length > 128) {
         errors.push('Password must not exceed 128 characters');
     }
