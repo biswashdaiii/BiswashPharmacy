@@ -55,7 +55,7 @@ export const validatePassword = (password) => {
         errors.push('Password should not contain sequential characters');
     }
 
-    // Check for repeated characters
+    // Check for repeated characters   to prevent password like aaaa, 1111
     if (/(.)\1{2,}/.test(password)) {
         errors.push('Password should not contain repeated characters (e.g., aaa, 111)');
     }
