@@ -18,20 +18,20 @@ const AboutUs = () => {
 
           <div className="flex-1 space-y-6">
             <p>
-              Welcome to <strong>Biswash Pharmacy</strong>, your trusted partner in managing your healthcare needs conveniently and efficiently.
-              At Biswash Pharmacy, we understand the challenges individuals face when it comes to accessing quality medicines
+              Welcome to <strong>medinest</strong>, your trusted partner in managing your healthcare needs conveniently and efficiently.
+              At medinest, we understand the challenges individuals face when it comes to accessing quality medicines
               and managing their health needs.
             </p>
             <p>
               Medinest is committed to excellence in healthcare service. We continuously strive to enhance our platform,
               integrating the latest advancements to improve user experience and deliver superior service. Whether you're
-              ordering your first medicine or managing ongoing health needs, Biswash Pharmacy is here to support you every step of the way.
+              ordering your first medicine or managing ongoing health needs, Medinest is here to support you every step of the way.
             </p>
 
             <div>
               <h3 className="font-semibold text-lg mb-1">Our Vision</h3>
               <p>
-                Our vision at Biswash Pharmacy is to create a seamless healthcare experience for every user. We aim to bridge the
+                Our vision at Medinest is to create a seamless healthcare experience for every user. We aim to bridge the
                 gap between patients and quality medicines, making it easier for you to access the medications you need, when you need them.
               </p>
             </div>
