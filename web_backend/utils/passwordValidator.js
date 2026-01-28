@@ -8,7 +8,7 @@ const commonPasswords = [
 ];
 
 /**
- * Validate password strength
+ * Validate password strength to check if the password is strong enough
  * @param {string} password - Password to validate
  * @returns {Object} - { isValid: boolean, errors: string[], strength: string }
  */
