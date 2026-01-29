@@ -62,7 +62,7 @@ const registerUser = async (req, res) => {
       passwordLastChangedAt: Date.now()
     });
 
-    // Generate access and refresh tokens with role for stateless RBAC
+    // Generate access and refresh tokens with role for stateless RBAC for new user
     const accessToken = jwt.sign({ id: user._id, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '15m' });
     const refreshToken = jwt.sign({ id: user._id, role: user.role || 'user' }, process.env.REFRESH_SECRET || JWT_SECRET, { expiresIn: '7d' });
 
