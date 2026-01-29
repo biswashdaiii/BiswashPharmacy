@@ -25,7 +25,7 @@ const AboutUs = () => {
             <p>
               Medinest is committed to excellence in healthcare service. We continuously strive to enhance our platform,
               integrating the latest advancements to improve user experience and deliver superior service. Whether you're
-              ordering your first medicine or managing ongoing health needs, Medinest is here to support you every step of the way. hello
+              ordering your first medicine or managing on health needs, Medinest is here to support you every step of the way. hello
             </p>
 
             <div>
