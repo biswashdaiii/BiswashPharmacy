@@ -73,7 +73,7 @@ const sanitizeValue = (value) => {
       else value[key] = sanitizeValue(value[key]);
     }
   }
-  return value;
+  return value;//{$gt":""}
 };
 
 app.use((req, res, next) => {
@@ -88,7 +88,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ======== CORS ========
+// ======== CORS 
 app.use(cors({
   origin: [
     "https://localhost:5173",
