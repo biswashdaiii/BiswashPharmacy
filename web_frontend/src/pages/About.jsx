@@ -31,7 +31,7 @@ const AboutUs = () => {
             <div>
               <h3 className="font-semibold text-lg mb-1">Our Vision</h3>
               <p>
-                Our vision at Medinest is to create a seamless healthcare experience for every user. We aim to bridge the
+                Our vision at Medinest is to create a smooth  healthcare experience for every user. We aim to bridge the
                 gap between patients and quality medicines, making it easier for you to access the medications you need, when you need them.
               </p>
             </div>
