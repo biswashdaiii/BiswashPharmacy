@@ -14,8 +14,7 @@ root.render(
   <React.StrictMode>
     <BrowserRouter>
       {/* 
-        This is the only wrapper you need. It provides the context 
-        to your entire application.
+      Wrapping App with ShopContextProvider to provide context to the entire app
       */}
       <ShopContextProvider>
         <App />
