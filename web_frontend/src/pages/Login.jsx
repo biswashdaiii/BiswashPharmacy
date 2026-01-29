@@ -27,6 +27,12 @@ const Login = () => {
 
   // Redirect if already logged in - FIXED VERSION
   useEffect(() => {
+    // Clear fields on initial mount
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+    setName("");
+
     const storedToken = localStorage.getItem('token');
     const storedAuthStorage = localStorage.getItem('auth-storage');
 
@@ -157,8 +163,20 @@ const Login = () => {
     }
   }, [setToken, navigate, backendUrl]);
 
+
   const handleGoogleSignIn = () => {
     window.location.href = `${backendUrl}/api/user/auth/google`;
+  };
+
+
+  const toggleState = () => {
+    setState(state === "Sign up" ? "Login" : "Sign up");
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+    setName("");
+    setRecaptchaToken("");
+    recaptchaRef.current?.reset();
   };
 
   const onVerifyOTPHandler = async (e) => {
@@ -235,6 +253,7 @@ const Login = () => {
                   onChange={(e) => setName(e.target.value)}
                   value={name}
                   placeholder="Enter your full name"
+                  autoComplete="name"
                   required
                 />
               </div>
@@ -247,6 +266,7 @@ const Login = () => {
                 type="email"
                 onChange={(e) => setEmail(e.target.value)}
                 value={email}
+                autoComplete="email"
                 required
               />
             </div>
@@ -265,6 +285,7 @@ const Login = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   value={password}
                   placeholder="Enter your password"
+                  autoComplete={state === "Sign up" ? "new-password" : "current-password"}
                   required
                 />
                 <button
@@ -291,6 +312,7 @@ const Login = () => {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     value={confirmPassword}
                     placeholder="Confirm your password"
+                    autoComplete="new-password"
                     required
                   />
                   <button
@@ -342,14 +364,14 @@ const Login = () => {
             {state === "Sign up" ? (
               <p>
                 Already have an account?{" "}
-                <span onClick={() => setState("Login")} className="text-primary underline cursor-pointer">
+                <span onClick={toggleState} className="text-primary underline cursor-pointer">
                   Login here
                 </span>
               </p>
             ) : (
               <p>
                 Create a new account?{" "}
-                <span onClick={() => setState("Sign up")} className="text-primary underline cursor-pointer">
+                <span onClick={toggleState} className="text-primary underline cursor-pointer">
                   Click here
                 </span>
               </p>

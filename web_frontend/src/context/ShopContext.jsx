@@ -74,7 +74,7 @@ const ShopContextProvider = (props) => {
 
     const currency = '$';
     const delivery_fee = 10;
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://192.168.226.1:5050";
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || "https://localhost:5050";
     const [search, setSearch] = useState('');
     const [showSearch, setShowSearch] = useState(false);
     const [cartItems, setCartItems] = useState({});

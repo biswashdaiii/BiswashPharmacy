@@ -15,7 +15,7 @@ const Login = () => {
         email,
         password,
       });
-      console.log("login response data",data)
+      console.log("login response data", data)
       if (data.success) {
         localStorage.setItem('aToken', data.token);
         setAToken(data.token);
@@ -43,7 +43,7 @@ const Login = () => {
             onChange={(e) => setEmail(e.target.value)}
             value={email}
             type="email"
-            id="email"
+            autoComplete="email"
             required
             className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#007E85]"
           />
@@ -55,7 +55,7 @@ const Login = () => {
             onChange={(e) => setPassword(e.target.value)}
             value={password}
             type="password"
-            id="password"
+            autoComplete="current-password"
             required
             className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#007E85]"
           />

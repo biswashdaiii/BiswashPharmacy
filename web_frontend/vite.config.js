@@ -13,13 +13,13 @@ export default defineConfig({
     host: true,
     port: 5173,
     hmr: {
-      host: '192.168.159.1',
+      host: 'localhost',
       port: 5173,
       protocol: 'wss'
     },
     proxy: {
       '/api': {
-        target: 'https://192.168.159.1:5050',
+        target: 'https://localhost:5050',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, ''),
