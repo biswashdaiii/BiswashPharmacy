@@ -2,6 +2,12 @@ import axios from 'axios';
 
 
 export const verifyRecaptcha = async (req, res, next) => {
+    // TEMPORARY: Bypass reCAPTCHA for Burp Suite testing in VM
+    // TODO: Re-enable after testing
+    console.log('⚠️ reCAPTCHA verification bypassed for testing');
+    return next();
+
+    /* COMMENTED OUT FOR TESTING
     const { recaptchaToken } = req.body;
 
     if (!recaptchaToken) {
@@ -42,4 +48,5 @@ export const verifyRecaptcha = async (req, res, next) => {
             message: 'Error verifying reCAPTCHA. Please try again.'
         });
     }
+    */
 };

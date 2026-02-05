@@ -88,14 +88,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// ======== CORS 
+// ======== CORS (TEMPORARY: Allow all origins for Burp testing)
 app.use(cors({
-  origin: [
-    "https://localhost:5173",
-    "https://localhost:5174",
-    "https://192.168.159.1:5173",
-    "https://192.168.159.1:5174"
-  ],
+  origin: true, // Allow all origins temporarily for testing
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'atoken', 'token']
